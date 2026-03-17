@@ -1,0 +1,1 @@
+"""Clinic service application package."""
