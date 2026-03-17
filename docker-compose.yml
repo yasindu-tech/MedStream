@@ -16,8 +16,32 @@ services:
     networks:
       - medstream-net
 
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: medstream_postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secretpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/db/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - medstream-net
+
   auth-service:
     build: ./auth-service
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@postgres_db:5432/medstream_auth
     ports:
       - "8001:8000"
     networks:
@@ -25,6 +49,11 @@ services:
 
   patient-service:
     build: ./patient-service
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@postgres_db:5432/medstream_clinic
     ports:
       - "8002:8000"
     networks:
@@ -32,6 +61,11 @@ services:
 
   clinic-service:
     build: ./clinic-service
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@postgres_db:5432/medstream_clinic
     ports:
       - "8003:8000"
     networks:
@@ -39,6 +73,11 @@ services:
 
   appointment-service:
     build: ./appointment-service
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@postgres_db:5432/medstream_clinic
     ports:
       - "8004:8000"
     networks:
@@ -46,6 +85,11 @@ services:
 
   payment-service:
     build: ./payment-service
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@postgres_db:5432/medstream_payments
     ports:
       - "8005:8000"
     networks:
@@ -53,6 +97,11 @@ services:
 
   notification-service:
     build: ./notification-service
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@postgres_db:5432/medstream_clinic
     ports:
       - "8006:8000"
     networks:
@@ -61,3 +110,6 @@ services:
 networks:
   medstream-net:
     driver: bridge
+
+volumes:
+  postgres_data:

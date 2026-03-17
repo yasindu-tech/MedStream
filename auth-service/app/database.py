@@ -2,7 +2,9 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
+DEFAULT_DATABASE_URL = "postgresql+psycopg2://dev_user:dev_password@localhost:5432/medstream_auth"
+# For Azure or other environments, set DATABASE_URL to override this local default.
+DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
 
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
