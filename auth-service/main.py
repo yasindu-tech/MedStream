@@ -1,8 +1,13 @@
 from fastapi import FastAPI
+from app.database import Base, engine
+from app.routers import router
 
-app = FastAPI(title="auth-service", version="0.1.0")
+Base.metadata.create_all(bind=engine)
 
+app = FastAPI(title="MedStream Auth Service", version="1.0.0")
+app.include_router(router)
 
-@app.get("/health", tags=["health"])
-def health_check() -> dict[str, str]:
-    return {"status": "ok", "service": "auth-service"}
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
