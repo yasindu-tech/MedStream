@@ -1,15 +1,18 @@
-import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from app.config import settings
 
-DEFAULT_DATABASE_URL = "postgresql+psycopg2://dev_user:dev_password@localhost:5432/medstream_auth"
-# For Azure or other environments, set DATABASE_URL to override this local default.
-DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
-
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+engine = create_engine(
+    settings.DATABASE_URL,
+    connect_args={"options": "-csearch_path=auth"}
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
-
-class Base(DeclarativeBase):
-    pass
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
