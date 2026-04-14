@@ -54,32 +54,37 @@ Each service includes:
 
 	docker compose down
 
-## Local Logical Databases
+## Separate PostgreSQL Databases
 
-Postgres is started as postgres_db, and it runs [infrastructure/db/init-db.sql](infrastructure/db/init-db.sql) on first container initialization.
+This setup uses five separate Postgres containers (not logical databases in one server):
 
-It creates:
+- AuthDB: medstream_auth on auth_db (host port 5432)
+- AdminDB: medstream_admin on admin_db (host port 5433)
+- PatientCareDB: medstream_patientcare on patientcare_db (host port 5434)
+- FinanceDB: medstream_finance on finance_db (host port 5435)
+- CommunicationDB: medstream_communication on communication_db (host port 5436)
 
-- medstream_auth
-- medstream_clinic
-- medstream_payments
-- dev_user / dev_password
+Initialization scripts:
 
-Important:
-
-- The init SQL script runs only when the Postgres volume is empty.
-- Use docker compose down -v to wipe the volume and rerun the initialization script.
+- [infrastructure/db/init-db.sql](infrastructure/db/init-db.sql) (AuthDB)
+- [infrastructure/db/init-admin-db.sql](infrastructure/db/init-admin-db.sql)
+- [infrastructure/db/init-patientcare-db.sql](infrastructure/db/init-patientcare-db.sql)
+- [infrastructure/db/init-finance-db.sql](infrastructure/db/init-finance-db.sql)
+- [infrastructure/db/init-communication-db.sql](infrastructure/db/init-communication-db.sql)
 
 Service DATABASE_URL mapping in compose:
 
-- auth-service -> medstream_auth
-- clinic-service -> medstream_clinic
-- appointment-service -> medstream_clinic
-- patient-service -> medstream_clinic
-- payment-service -> medstream_payments
-- notification-service -> medstream_clinic
+- auth-service -> auth_db / medstream_auth
+- clinic-service -> admin_db / medstream_admin
+- patient-service -> patientcare_db / medstream_patientcare
+- appointment-service -> patientcare_db / medstream_patientcare
+- payment-service -> finance_db / medstream_finance
+- notification-service -> communication_db / medstream_communication
 
-Each service reads DATABASE_URL from environment (see app/database.py in each service), so you can override it for Azure or any external DB.
+Important:
+
+- Init scripts run only when the respective DB volume is empty.
+- Use docker compose down -v to reinitialize all five databases from scripts.
 
 ## Health Endpoints
 

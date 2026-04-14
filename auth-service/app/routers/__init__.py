@@ -5,7 +5,7 @@ from app.schemas import RegisterRequest, LoginRequest, RefreshRequest, TokenResp
 from app.services import register_user, login_user, refresh_tokens
 from app.middleware import get_current_user, require_roles
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
+router = APIRouter(tags=["Auth"])
 
 @router.post("/register", response_model=UserResponse, status_code=201)
 def register(data: RegisterRequest, db: Session = Depends(get_db)):
