@@ -1,24 +1,18 @@
 -- ============================================================
--- MedStream Database Initialization
+-- AuthDB Initialization (medstream_auth)
 -- ============================================================
 
--- Create databases
-CREATE DATABASE medstream_auth;
-CREATE DATABASE medstream_clinic;
-CREATE DATABASE medstream_payments;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Create shared app user
-CREATE USER dev_user WITH PASSWORD 'dev_password';
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'dev_user') THEN
+        CREATE ROLE dev_user LOGIN PASSWORD 'dev_password';
+    END IF;
+END
+$$;
 
--- Grant privileges on each database
-GRANT ALL PRIVILEGES ON DATABASE medstream_auth     TO dev_user;
-GRANT ALL PRIVILEGES ON DATABASE medstream_clinic   TO dev_user;
-GRANT ALL PRIVILEGES ON DATABASE medstream_payments TO dev_user;
-
--- ============================================================
--- Auth database setup
--- ============================================================
-\connect medstream_auth
+GRANT CONNECT ON DATABASE medstream_auth TO dev_user;
 
 CREATE SCHEMA IF NOT EXISTS auth;
 GRANT ALL ON SCHEMA auth TO dev_user;
@@ -55,29 +49,3 @@ VALUES (
     'admin',
     TRUE
 ) ON CONFLICT DO NOTHING;
-
--- ============================================================
--- Clinic database setup
--- ============================================================
-\connect medstream_clinic
-
-CREATE SCHEMA IF NOT EXISTS clinic;
-GRANT ALL ON SCHEMA clinic TO dev_user;
-
-GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA clinic TO dev_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA clinic TO dev_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA clinic GRANT ALL ON TABLES    TO dev_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA clinic GRANT ALL ON SEQUENCES TO dev_user;
-
--- ============================================================
--- Payments database setup
--- ============================================================
-\connect medstream_payments
-
-CREATE SCHEMA IF NOT EXISTS payments;
-GRANT ALL ON SCHEMA payments TO dev_user;
-
-GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA payments TO dev_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA payments TO dev_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA payments GRANT ALL ON TABLES    TO dev_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA payments GRANT ALL ON SEQUENCES TO dev_user;
