@@ -116,11 +116,11 @@ def get_doctor_profile(
         slots: List[SlotItem] = []
         if target_date and date_within_window and day_of_week:
             matching = [a for a in avail_rows if a.day_of_week == day_of_week]
+            booked = get_booked_slots(
+                str(doctor_id), str(clinic.clinic_id), target_date
+            )
+            booked_starts = {b.start_time for b in booked}
             for a in matching:
-                booked = get_booked_slots(
-                    str(doctor_id), str(clinic.clinic_id), target_date
-                )
-                booked_starts = {b.start_time for b in booked}
                 slots.extend(
                     _generate_slots(a.start_time, a.end_time, a.slot_duration, booked_starts)
                 )
