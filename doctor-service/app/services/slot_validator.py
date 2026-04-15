@@ -109,9 +109,12 @@ def validate_slot(
         }
 
     # If we get here, no matching availability window was found
-    # Check if it's a consultation_type mismatch specifically
-    available_types = {a.consultation_type for a in avail_rows if a.consultation_type}
-    if consultation_type not in available_types:
+    # Check if it's a consultation_type mismatch specifically.
+    # A NULL consultation_type is treated as a wildcard elsewhere in this
+    # function, so it must also count as offering all consultation types here.
+    has_wildcard_type = any(a.consultation_type is None for a in avail_rows)
+    available_types = {a.consultation_type for a in avail_rows if a.consultation_type is not None}
+    if not has_wildcard_type and consultation_type not in available_types:
         return {
             "valid": False,
             "reason": f"Doctor does not offer '{consultation_type}' at this clinic. Available: {list(available_types)}",
