@@ -9,44 +9,7 @@ from sqlalchemy.orm import Session
 from app.models import Doctor, Clinic, DoctorClinicAssignment, DoctorAvailability
 from app.schemas import DoctorSearchResult, SlotItem
 from app.services.appointment_client import get_booked_slots_batch
-
-
-# ---------------------------------------------------------------------------
-# Helper: slot generation
-# ---------------------------------------------------------------------------
-
-def _parse_time(t: str) -> datetime:
-    """Parse 'HH:MM' into a datetime (date part is irrelevant)."""
-    return datetime.strptime(t, "%H:%M")
-
-
-def _format_time(dt: datetime) -> str:
-    return dt.strftime("%H:%M")
-
-
-def _generate_slots(
-    start: str,
-    end: str,
-    duration_minutes: int,
-    booked_starts: set[str],
-) -> List[SlotItem]:
-    """
-    Generate all slots between start and end at duration_minutes intervals,
-    excluding any whose start_time appears in booked_starts.
-    """
-    slots: List[SlotItem] = []
-    current = _parse_time(start)
-    finish = _parse_time(end)
-    delta = timedelta(minutes=duration_minutes)
-
-    while current + delta <= finish:
-        slot_start = _format_time(current)
-        slot_end = _format_time(current + delta)
-        if slot_start not in booked_starts:
-            slots.append(SlotItem(start_time=slot_start, end_time=slot_end))
-        current += delta
-
-    return slots
+from app.services.slots import generate_slots
 
 
 # ---------------------------------------------------------------------------
@@ -130,12 +93,13 @@ def search_doctors(
             key = (str(doctor.doctor_id), str(clinic.clinic_id))
             booked_list = booked_map.get(key, [])
             booked_starts = {b.start_time for b in booked_list}
-            slots = _generate_slots(
+            slots = generate_slots(
                 availability.start_time,
                 availability.end_time,
                 availability.slot_duration,
                 booked_starts,
             )
+            fee = str(doctor.consultation_fee) if doctor.consultation_fee is not None else None
             results.append(
                 DoctorSearchResult(
                     doctor_id=doctor.doctor_id,
@@ -144,7 +108,7 @@ def search_doctors(
                     consultation_type=availability.consultation_type,
                     clinic_id=clinic.clinic_id,
                     clinic_name=clinic.clinic_name,
-                    consultation_fee=None,
+                    consultation_fee=fee,
                     available_slots=slots,
                     has_slots=len(slots) > 0,
                 )
@@ -157,6 +121,7 @@ def search_doctors(
             if key in seen:
                 continue
             seen.add(key)
+            fee = str(doctor.consultation_fee) if doctor.consultation_fee is not None else None
             results.append(
                 DoctorSearchResult(
                     doctor_id=doctor.doctor_id,
@@ -166,7 +131,7 @@ def search_doctors(
                     consultation_type=availability.consultation_type,
                     clinic_id=clinic.clinic_id,
                     clinic_name=clinic.clinic_name,
-                    consultation_fee=None,
+                    consultation_fee=fee,
                     available_slots=[],   # no date = no slot computation
                     has_slots=False,
                 )

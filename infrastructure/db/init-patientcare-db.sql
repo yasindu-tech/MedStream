@@ -176,7 +176,7 @@ INSERT INTO patientcare.appointments (
 ) VALUES
     ('abababab-abab-4ab1-8ab1-ababababab11', '99999999-9999-4999-8999-999999999991', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'physical', '2026-04-20', '09:30', '10:00', 'scheduled', 'pending'),
     ('abababab-abab-4ab1-8ab1-ababababab12', '99999999-9999-4999-8999-999999999992', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'telemedicine', '2026-04-23', '14:00', '14:30', 'scheduled', 'paid'),
-    ('abababab-abab-4ab1-8ab1-ababababab13', '99999999-9999-4999-8999-999999999991', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'physical', '2026-04-21', '11:00', '11:20', 'completed', 'paid')
+    ('abababab-abab-4ab1-8ab1-ababababab13', '99999999-9999-4999-8999-999999999991', 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'physical', '2026-04-21', '11:00', '11:20', 'completed', 'paid')
 ON CONFLICT (appointment_id) DO NOTHING;
 
 INSERT INTO patientcare.appointment_status_history (
