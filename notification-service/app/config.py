@@ -1,0 +1,22 @@
+from pydantic_settings import BaseSettings
+from typing import Optional
+
+class Settings(BaseSettings):
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:password@notification-db:5432/medstream_communication"
+    SECRET_KEY: str = "your-super-secret-key-change-in-production"
+    ALGORITHM: str = "HS256"
+    
+    SMTP_HOST: str = "smtp.mailtrap.io"
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    EMAIL_FROM: str = "noreply@medstream.com"
+    
+    ENVIRONMENT: str = "development"
+    SERVICE_NAME: str = "notification-service"
+    SERVICE_PORT: int = 8007
+
+    class Config:
+        env_file = ".env"
+
+settings = Settings()
