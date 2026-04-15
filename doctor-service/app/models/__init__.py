@@ -1,6 +1,6 @@
 """SQLAlchemy models for the admin schema (doctor-service reads from medstream_admin)."""
 import uuid
-from sqlalchemy import Column, String, Integer, DateTime
+from sqlalchemy import Column, String, Integer, Numeric, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.database import Base
@@ -18,6 +18,11 @@ class Doctor(Base):
     consultation_mode = Column(String(40), nullable=True)
     verification_status = Column(String(30), nullable=False, default="pending")
     status = Column(String(30), nullable=False, default="active")
+    bio = Column(Text, nullable=True)
+    experience_years = Column(Integer, nullable=True)
+    qualifications = Column(Text, nullable=True)
+    profile_image_url = Column(Text, nullable=True)
+    consultation_fee = Column(Numeric(10, 2), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

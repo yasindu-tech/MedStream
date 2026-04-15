@@ -41,6 +41,11 @@ CREATE TABLE IF NOT EXISTS admin.doctors (
     consultation_mode        varchar(40),
     verification_status      varchar(30) NOT NULL DEFAULT 'verified',
     status                   varchar(30) NOT NULL DEFAULT 'active',
+    bio                      text,
+    experience_years         int,
+    qualifications           text,
+    profile_image_url        text,
+    consultation_fee         numeric(10,2),
     created_at               timestamptz NOT NULL DEFAULT now()
 );
 
@@ -85,11 +90,56 @@ VALUES
 ON CONFLICT (clinic_id) DO NOTHING;
 
 -- Doctors linked to auth seed users (22222222-... = dr.anura, 33333333-... = dr.nadee)
-INSERT INTO admin.doctors (doctor_id, user_id, full_name, medical_registration_no, specialization, consultation_mode, verification_status, status)
-VALUES
-    ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', '22222222-2222-4222-8222-222222222222', 'Dr. Anura Bandara', 'SLMC-1001', 'Cardiology',        'physical',     'verified', 'active'),
-    ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', '33333333-3333-4333-8333-333333333333', 'Dr. Nadeesha Perera', 'SLMC-1002', 'Cardiology',      'telemedicine', 'verified', 'active'),
-    ('ffffffff-ffff-4fff-8fff-ffffffffffff', NULL,                                    'Dr. Ruwan Silva',    'SLMC-2001', 'General Practice', 'physical',     'verified', 'active')
+INSERT INTO admin.doctors (
+    doctor_id, user_id, full_name, medical_registration_no,
+    specialization, consultation_mode, verification_status, status,
+    bio, experience_years, qualifications, profile_image_url, consultation_fee
+) VALUES
+    (
+        'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        '22222222-2222-4222-8222-222222222222',
+        'Dr. Anura Bandara',
+        'SLMC-1001',
+        'Cardiology',
+        'physical',
+        'verified',
+        'active',
+        'Senior cardiologist with over 15 years of experience in interventional cardiology and heart failure management. Specialises in coronary artery disease and preventive cardiology.',
+        15,
+        'MBBS (Colombo), MD (Cardiology), MRCP (UK), FCCP',
+        NULL,
+        2500.00
+    ),
+    (
+        'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        '33333333-3333-4333-8333-333333333333',
+        'Dr. Nadeesha Perera',
+        'SLMC-1002',
+        'Cardiology',
+        'telemedicine',
+        'verified',
+        'active',
+        'Consultant cardiologist offering telemedicine consultations. Special interest in cardiac imaging and echocardiography.',
+        10,
+        'MBBS (Peradeniya), MD (Cardiology), FRCP (Edin)',
+        NULL,
+        1500.00
+    ),
+    (
+        'ffffffff-ffff-4fff-8fff-ffffffffffff',
+        NULL,
+        'Dr. Ruwan Silva',
+        'SLMC-2001',
+        'General Practice',
+        'physical',
+        'verified',
+        'active',
+        NULL,                   -- incomplete profile (no bio)
+        NULL,                   -- incomplete profile (no experience)
+        'MBBS (Colombo)',
+        NULL,
+        1000.00
+    )
 ON CONFLICT (doctor_id) DO NOTHING;
 
 INSERT INTO admin.doctor_clinic_assignments (doctor_id, clinic_id, status)
@@ -102,7 +152,7 @@ ON CONFLICT (doctor_id, clinic_id) DO NOTHING;
 -- Availability covers every day of the week for easy testing
 INSERT INTO admin.doctor_availability (doctor_id, clinic_id, day_of_week, start_time, end_time, slot_duration, consultation_type, status)
 VALUES
-    -- Dr. Anura: Mon–Sat physical @ Colombo Heart Centre
+    -- Dr. Anura: Mon-Sat physical @ Colombo Heart Centre
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'monday',    '08:00', '12:00', 30, 'physical', 'active'),
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'tuesday',   '08:00', '12:00', 30, 'physical', 'active'),
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'wednesday', '08:00', '12:00', 30, 'physical', 'active'),
@@ -110,7 +160,7 @@ VALUES
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'friday',    '08:00', '12:00', 30, 'physical', 'active'),
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'saturday',  '09:00', '13:00', 30, 'physical', 'active'),
 
-    -- Dr. Nadeesha: Mon–Fri telemedicine @ Sunrise Tele Clinic
+    -- Dr. Nadeesha: Mon-Fri telemedicine @ Sunrise Tele Clinic
     ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'monday',    '10:00', '16:00', 30, 'telemedicine', 'active'),
     ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'tuesday',   '10:00', '16:00', 30, 'telemedicine', 'active'),
     ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'wednesday', '10:00', '16:00', 30, 'telemedicine', 'active'),

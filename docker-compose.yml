@@ -118,6 +118,9 @@ services:
 
   auth-service:
     build: ./auth-service
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./auth-service:/app
     depends_on:
       auth_db:
         condition: service_healthy
@@ -130,6 +133,9 @@ services:
 
   patient-service:
     build: ./patient-service
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./patient-service:/app
     depends_on:
       patientcare_db:
         condition: service_healthy
@@ -142,6 +148,9 @@ services:
 
   clinic-service:
     build: ./clinic-service
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./clinic-service:/app
     depends_on:
       admin_db:
         condition: service_healthy
@@ -154,6 +163,9 @@ services:
 
   appointment-service:
     build: ./appointment-service
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./appointment-service:/app
     depends_on:
       patientcare_db:
         condition: service_healthy
@@ -169,6 +181,9 @@ services:
 
   payment-service:
     build: ./payment-service
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./payment-service:/app
     depends_on:
       finance_db:
         condition: service_healthy
@@ -181,6 +196,9 @@ services:
 
   notification-service:
     build: ./notification-service
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./notification-service:/app
     depends_on:
       communication_db:
         condition: service_healthy
@@ -193,6 +211,9 @@ services:
 
   doctor-service:
     build: ./doctor-service
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./doctor-service:/app
     depends_on:
       admin_db:
         condition: service_healthy

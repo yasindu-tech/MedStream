@@ -8,15 +8,20 @@ from datetime import date
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas import DoctorSearchResponse
+from app.schemas import DoctorSearchResponse, DoctorProfileResponse
 from app.services.doctor_search import search_doctors
+from app.services.doctor_profile import get_doctor_profile
 
 router = APIRouter(tags=["internal"])
 
+
+# ---------------------------------------------------------------------------
+# AS-01: Doctor search
+# ---------------------------------------------------------------------------
 
 @router.get("/doctors/search", response_model=DoctorSearchResponse)
 def internal_doctor_search(
@@ -27,7 +32,7 @@ def internal_doctor_search(
     db: Session = Depends(get_db),
 ) -> DoctorSearchResponse:
     """
-    Internal endpoint consumed by patient-service.
+    Internal endpoint consumed by appointment-service.
     Returns matching doctors with available time slots.
 
     - Returns 200 with [] when no doctors match — never 404.
@@ -46,3 +51,28 @@ def internal_doctor_search(
         total=len(results),
         empty_state=len(results) == 0,
     )
+
+
+# ---------------------------------------------------------------------------
+# AS-02: Doctor profile
+# ---------------------------------------------------------------------------
+
+@router.get("/doctors/{doctor_id}/profile", response_model=DoctorProfileResponse)
+def internal_doctor_profile(
+    doctor_id: UUID,
+    date: Optional[date] = Query(None, description="Target date for slot availability (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+) -> DoctorProfileResponse:
+    """
+    Internal endpoint consumed by appointment-service.
+    Returns full doctor profile with clinic details and availability.
+
+    Returns 404 if doctor is not found, inactive, or unverified.
+    """
+    profile = get_doctor_profile(db, doctor_id, target_date=date)
+    if profile is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Doctor not found, inactive, or unverified",
+        )
+    return profile

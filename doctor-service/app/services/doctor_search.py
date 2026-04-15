@@ -136,6 +136,7 @@ def search_doctors(
                 availability.slot_duration,
                 booked_starts,
             )
+            fee = float(doctor.consultation_fee) if doctor.consultation_fee is not None else None
             results.append(
                 DoctorSearchResult(
                     doctor_id=doctor.doctor_id,
@@ -144,7 +145,7 @@ def search_doctors(
                     consultation_type=availability.consultation_type,
                     clinic_id=clinic.clinic_id,
                     clinic_name=clinic.clinic_name,
-                    consultation_fee=None,
+                    consultation_fee=fee,
                     available_slots=slots,
                     has_slots=len(slots) > 0,
                 )
@@ -157,6 +158,7 @@ def search_doctors(
             if key in seen:
                 continue
             seen.add(key)
+            fee = float(doctor.consultation_fee) if doctor.consultation_fee is not None else None
             results.append(
                 DoctorSearchResult(
                     doctor_id=doctor.doctor_id,
@@ -166,7 +168,7 @@ def search_doctors(
                     consultation_type=availability.consultation_type,
                     clinic_id=clinic.clinic_id,
                     clinic_name=clinic.clinic_name,
-                    consultation_fee=None,
+                    consultation_fee=fee,
                     available_slots=[],   # no date = no slot computation
                     has_slots=False,
                 )
