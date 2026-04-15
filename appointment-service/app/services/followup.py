@@ -186,12 +186,20 @@ def confirm_followup(
 def get_pending_followups(
     db: Session,
     *,
-    patient_user_id: str,
+    patient_user_id: str | UUID,
 ) -> List[FollowUpSuggestionResponse]:
     """
     Fetch all 'pending' follow-up suggestions for the logged-in patient.
     """
-    patient = db.query(Patient).filter(Patient.user_id == UUID(patient_user_id)).first()
+    try:
+        patient_user_uuid = patient_user_id if isinstance(patient_user_id, UUID) else UUID(patient_user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid patient_user_id.",
+        )
+
+    patient = db.query(Patient).filter(Patient.user_id == patient_user_uuid).first()
     if not patient:
         return []
 
