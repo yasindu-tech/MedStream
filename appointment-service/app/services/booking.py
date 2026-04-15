@@ -42,19 +42,21 @@ def book_appointment(
             .first()
         )
         if existing:
-            # We need doctor/clinic names — call validate-slot again for names
-            slot_info = _validate_slot_with_doctor_service(request)
+            # Return the persisted appointment as-is for idempotent replays.
+            # Do not re-validate or re-fetch metadata using the new request,
+            # because that can make the response inconsistent with the stored
+            # appointment and can fail even though the booking already exists.
             return BookAppointmentResponse(
                 appointment_id=existing.appointment_id,
-                doctor_name=slot_info.get("doctor_name", ""),
-                clinic_name=slot_info.get("clinic_name", ""),
+                doctor_name="",
+                clinic_name="",
                 date=existing.appointment_date,
                 start_time=existing.start_time.strftime("%H:%M"),
                 end_time=existing.end_time.strftime("%H:%M"),
                 consultation_type=existing.appointment_type,
                 status=existing.status,
                 payment_status=existing.payment_status,
-                consultation_fee=slot_info.get("consultation_fee"),
+                consultation_fee=None,
                 message="Appointment already exists (idempotent request).",
             )
 
