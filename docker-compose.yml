@@ -159,22 +159,13 @@ services:
     depends_on:
       patientcare_db:
         condition: service_healthy
-    environment:
-      DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@patientcare_db:5432/medstream_patientcare
-    ports:
-      - "8004:8000"
-    networks:
-      - medstream-net
-
-  doctor-service:
-    build: ./doctor-service
-    depends_on:
-      admin_db:
+      doctor-service:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@admin_db:5432/medstream_admin
+      DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@patientcare_db:5432/medstream_patientcare
+      DOCTOR_SERVICE_URL: http://doctor-service:8000
     ports:
-      - "8007:8000"
+      - "8004:8000"
     networks:
       - medstream-net
 
@@ -211,6 +202,25 @@ services:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@communication_db:5432/medstream_communication
     ports:
       - "8006:8000"
+    networks:
+      - medstream-net
+
+  doctor-service:
+    build: ./doctor-service
+    depends_on:
+      admin_db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@admin_db:5432/medstream_admin
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8000
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "8007:8000"
     networks:
       - medstream-net
 
