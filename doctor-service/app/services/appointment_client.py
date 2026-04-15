@@ -1,6 +1,6 @@
 """HTTP client for fetching booked slots from the Appointment Service."""
 from __future__ import annotations
-from typing import List
+from typing import Dict, List, Tuple
 from datetime import date
 
 import httpx
@@ -34,6 +34,42 @@ def get_booked_slots(doctor_id: str, clinic_id: str, target_date: date) -> List[
             response.raise_for_status()
             data = response.json()
             return [BookedSlot(item["start_time"], item["end_time"]) for item in data]
-    except Exception:
-        # Fail-open: if appointment-service is unreachable, return no booked slots
+    except (httpx.RequestError, httpx.HTTPStatusError, KeyError, ValueError):
+        # Fail-open: if appointment-service is unreachable or returns
+        # unexpected data, return no booked slots so search still works.
         return []
+
+
+def get_booked_slots_batch(
+    doctor_ids: List[str],
+    target_date: date,
+) -> Dict[Tuple[str, str], List[BookedSlot]]:
+    """
+    Batch-fetch booked slots for multiple doctors on a given date.
+    Returns a dict keyed by (doctor_id, clinic_id) → list of BookedSlot.
+
+    This avoids N+1 HTTP calls when computing available slots for many doctors.
+    """
+    if not doctor_ids:
+        return {}
+
+    url = f"{settings.APPOINTMENT_SERVICE_URL}/internal/appointments/booked-slots/batch"
+    params = {
+        "doctor_ids": ",".join(doctor_ids),
+        "date": target_date.isoformat(),
+    }
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+        result: Dict[Tuple[str, str], List[BookedSlot]] = {}
+        for item in data:
+            key = (item["doctor_id"], item["clinic_id"])
+            result.setdefault(key, []).append(
+                BookedSlot(item["start_time"], item["end_time"])
+            )
+        return result
+    except (httpx.RequestError, httpx.HTTPStatusError, KeyError, ValueError):
+        return {}
