@@ -8,6 +8,8 @@ MedStream is a microservices workspace scaffolded for FastAPI services with loca
 - patient-service
 - clinic-service
 - appointment-service
+- doctor-service
+- telemedicine-service
 - payment-service
 - notification-service
 
@@ -38,6 +40,8 @@ Each service includes:
 	curl http://localhost:8080/patients/health
 	curl http://localhost:8080/clinics/health
 	curl http://localhost:8080/appointments/health
+	curl http://localhost:8080/doctors/health
+	curl http://localhost:8080/telemedicine/health
 	curl http://localhost:8080/payments/health
 	curl http://localhost:8080/notifications/health
 
@@ -47,6 +51,8 @@ Each service includes:
 	curl http://localhost:8002/health
 	curl http://localhost:8003/health
 	curl http://localhost:8004/health
+	curl http://localhost:8007/health
+	curl http://localhost:8008/health
 	curl http://localhost:8005/health
 	curl http://localhost:8006/health
 
@@ -78,6 +84,8 @@ Service DATABASE_URL mapping in compose:
 - clinic-service -> admin_db / medstream_admin
 - patient-service -> patientcare_db / medstream_patientcare
 - appointment-service -> patientcare_db / medstream_patientcare
+- doctor-service -> admin_db / medstream_admin
+- telemedicine-service -> patientcare_db / medstream_patientcare
 - payment-service -> finance_db / medstream_finance
 - notification-service -> communication_db / medstream_communication
 
@@ -105,6 +113,8 @@ Gateway paths map to each service health route:
 - /patients/health -> patient-service
 - /clinics/health -> clinic-service
 - /appointments/health -> appointment-service
+- /doctors/health -> doctor-service
+- /telemedicine/health -> telemedicine-service
 - /payments/health -> payment-service
 - /notifications/health -> notification-service
 
