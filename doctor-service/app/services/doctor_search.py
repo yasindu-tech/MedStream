@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Doctor, Clinic, DoctorClinicAssignment, DoctorAvailability
 from app.schemas import DoctorSearchResult, SlotItem
-from app.services.appointment_client import get_booked_slots
+from app.services.appointment_client import get_booked_slots_batch
 
 
 # ---------------------------------------------------------------------------
@@ -122,14 +122,14 @@ def search_doctors(
     results: List[DoctorSearchResult] = []
 
     if target_date:
-        # One availability row per (doctor, clinic) for the matching day
+        # Batch-fetch booked slots for all doctors in one HTTP call
+        unique_doctor_ids = list({str(doctor.doctor_id) for doctor, _, _ in rows})
+        booked_map = get_booked_slots_batch(unique_doctor_ids, target_date)
+
         for doctor, clinic, availability in rows:
-            booked = get_booked_slots(
-                str(doctor.doctor_id),
-                str(clinic.clinic_id),
-                target_date,
-            )
-            booked_starts = {b.start_time for b in booked}
+            key = (str(doctor.doctor_id), str(clinic.clinic_id))
+            booked_list = booked_map.get(key, [])
+            booked_starts = {b.start_time for b in booked_list}
             slots = _generate_slots(
                 availability.start_time,
                 availability.end_time,
