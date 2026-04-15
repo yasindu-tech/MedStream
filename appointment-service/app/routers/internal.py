@@ -8,7 +8,7 @@ from datetime import date
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -65,7 +65,10 @@ def get_booked_slots_batch(
     Return all occupied appointments for multiple doctors on a given date.
     Batch endpoint to avoid N+1 HTTP calls from doctor-service.
     """
-    parsed_ids = [UUID(d.strip()) for d in doctor_ids.split(",") if d.strip()]
+    try:
+        parsed_ids = [UUID(d.strip()) for d in doctor_ids.split(",") if d.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid doctor_id format in query parameter")
     if not parsed_ids:
         return []
 
