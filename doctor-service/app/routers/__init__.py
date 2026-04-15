@@ -12,7 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas import DoctorSearchResponse, DoctorProfileResponse, SlotValidationResponse
+from app.models import Doctor
+from app.schemas import DoctorSearchResponse, DoctorProfileResponse, SlotValidationResponse, DoctorIdResponse
 from app.services.doctor_search import search_doctors
 from app.services.doctor_profile import get_doctor_profile
 from app.services.slot_validator import validate_slot
@@ -105,4 +106,29 @@ def internal_validate_slot(
         consultation_type=consultation_type,
     )
     return SlotValidationResponse(**result)
+
+
+# ---------------------------------------------------------------------------
+# AS-04: Resolve user_id to doctor_id
+# ---------------------------------------------------------------------------
+
+@router.get("/doctors/by-user/{user_id}", response_model=DoctorIdResponse)
+def internal_doctor_by_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+) -> DoctorIdResponse:
+    """
+    Internal endpoint to resolve an auth user_id to an admin DB doctor_id.
+    """
+    doctor = db.query(Doctor).filter(Doctor.user_id == UUID(user_id)).first()
+    if not doctor:
+        raise HTTPException(
+            status_code=404,
+            detail="Doctor profile not found for this user",
+        )
+
+    return DoctorIdResponse(
+        doctor_id=doctor.doctor_id,
+        full_name=doctor.full_name,
+    )
 

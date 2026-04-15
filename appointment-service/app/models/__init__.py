@@ -45,6 +45,23 @@ class Appointment(Base):
     cancelled_by = Column(String(30), nullable=True)
     rescheduled_from_date = Column(Date, nullable=True)
     rescheduled_from_start_time = Column(Time, nullable=True)
-    idempotency_key = Column(String(255), nullable=True)
+    idempotency_key = Column(String(255), nullable=True, unique=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+
+class FollowUpSuggestion(Base):
+    __tablename__ = "follow_up_suggestions"
+    __table_args__ = {"schema": "patientcare"}
+
+    suggestion_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    original_appointment_id = Column(UUID(as_uuid=True), nullable=False)
+    doctor_id = Column(UUID(as_uuid=True), nullable=False)
+    patient_id = Column(UUID(as_uuid=True), nullable=False)
+    clinic_id = Column(UUID(as_uuid=True), nullable=True)
+    suggested_date = Column(Date, nullable=False)
+    suggested_start_time = Column(Time, nullable=False)
+    suggested_end_time = Column(Time, nullable=False)
+    consultation_type = Column(String(50), nullable=False)
+    notes = Column(String, nullable=True)
+    status = Column(String(30), nullable=False, default="pending")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
