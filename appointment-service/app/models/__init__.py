@@ -7,6 +7,22 @@ from sqlalchemy.sql import func
 from app.database import Base
 
 
+class Patient(Base):
+    __tablename__ = "patients"
+    __table_args__ = {"schema": "patientcare"}
+
+    patient_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), nullable=True)
+    full_name = Column(String(255), nullable=False)
+    dob = Column(Date, nullable=True)
+    gender = Column(String(20), nullable=True)
+    nic_passport = Column(String(50), nullable=True)
+    phone = Column(String(30), nullable=True)
+    address = Column(String, nullable=True)
+    blood_group = Column(String(10), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class Appointment(Base):
     __tablename__ = "appointments"
     __table_args__ = {"schema": "patientcare"}
@@ -26,4 +42,6 @@ class Appointment(Base):
     cancelled_by = Column(String(30), nullable=True)
     rescheduled_from_date = Column(Date, nullable=True)
     rescheduled_from_start_time = Column(Time, nullable=True)
+    idempotency_key = Column(String(255), nullable=True, unique=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+

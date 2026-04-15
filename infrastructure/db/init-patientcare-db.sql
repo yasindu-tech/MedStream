@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS patientcare.appointments (
     cancelled_by varchar(30),
     rescheduled_from_date date,
     rescheduled_from_start_time time,
+    idempotency_key varchar(255) UNIQUE,
     created_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT fk_appointments_patient FOREIGN KEY (patient_id) REFERENCES patientcare.patients(patient_id) ON DELETE CASCADE,
     CONSTRAINT fk_appointments_parent FOREIGN KEY (parent_appointment_id) REFERENCES patientcare.appointments(appointment_id) ON DELETE SET NULL
