@@ -1,7 +1,7 @@
 """SQLAlchemy models for the patientcare schema (appointment-service)."""
 import uuid
 from datetime import date, time
-from sqlalchemy import Column, String, Date, Time, DateTime
+from sqlalchemy import Column, String, Date, Time, DateTime, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.database import Base
@@ -25,7 +25,10 @@ class Patient(Base):
 
 class Appointment(Base):
     __tablename__ = "appointments"
-    __table_args__ = {"schema": "patientcare"}
+    __table_args__ = (
+        UniqueConstraint("patient_id", "idempotency_key", name="uq_appointments_patient_idempotency"),
+        {"schema": "patientcare"},
+    )
 
     appointment_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     parent_appointment_id = Column(UUID(as_uuid=True), nullable=True)
@@ -42,6 +45,6 @@ class Appointment(Base):
     cancelled_by = Column(String(30), nullable=True)
     rescheduled_from_date = Column(Date, nullable=True)
     rescheduled_from_start_time = Column(Time, nullable=True)
-    idempotency_key = Column(String(255), nullable=True, unique=True)
+    idempotency_key = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

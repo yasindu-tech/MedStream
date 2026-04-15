@@ -25,27 +25,49 @@ def book_appointment(
     idempotency_key: Optional[str] = None,
 ) -> BookAppointmentResponse:
     """
-    1. Idempotency check
+    1. Idempotency check (scoped to patient)
     2. Validate slot via doctor-service
-    3. Double-book collision check
+    3. Double-book collision check (time-range overlap)
     4. Create appointment
     5. Return response
     """
 
     # ------------------------------------------------------------------
-    # Step 1: Idempotency — if the key already exists, return existing
+    # Step 0: Resolve patient record early so idempotency is scoped
     # ------------------------------------------------------------------
-    if idempotency_key:
+    existing_patient = (
+        db.query(Patient)
+        .filter(Patient.user_id == patient_id)
+        .first()
+    )
+
+    # ------------------------------------------------------------------
+    # Step 1: Idempotency — scoped to the authenticated patient
+    # ------------------------------------------------------------------
+    if idempotency_key and existing_patient:
         existing = (
             db.query(Appointment)
-            .filter(Appointment.idempotency_key == idempotency_key)
+            .filter(
+                Appointment.patient_id == existing_patient.patient_id,
+                Appointment.idempotency_key == idempotency_key,
+            )
             .first()
         )
         if existing:
+            # Verify the stored appointment matches the current request
+            if (
+                existing.doctor_id != request.doctor_id
+                or existing.clinic_id != request.clinic_id
+                or existing.appointment_date != request.date
+                or existing.start_time != _parse_time(request.start_time)
+                or existing.appointment_type != request.consultation_type
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Idempotency key already used for a different booking request.",
+                )
+
             # Return the persisted appointment as-is for idempotent replays.
-            # Do not re-validate or re-fetch metadata using the new request,
-            # because that can make the response inconsistent with the stored
-            # appointment and can fail even though the booking already exists.
             return BookAppointmentResponse(
                 appointment_id=existing.appointment_id,
                 doctor_name="",
@@ -75,10 +97,10 @@ def book_appointment(
     consultation_fee: Optional[float] = slot_info.get("consultation_fee")
 
     # ------------------------------------------------------------------
-    # Step 3: Double-book collision check
+    # Step 3: Double-book collision check (time-range overlap)
     # ------------------------------------------------------------------
-    start_time_obj = datetime.strptime(request.start_time, "%H:%M").time()
-    end_time_obj = datetime.strptime(end_time_str, "%H:%M").time()
+    start_time_obj = _parse_time(request.start_time)
+    end_time_obj = _parse_time(end_time_str)
 
     collision = (
         db.query(Appointment)
@@ -102,11 +124,6 @@ def book_appointment(
     # ------------------------------------------------------------------
     # Step 4: Ensure patient record exists (auto-create on first booking)
     # ------------------------------------------------------------------
-    existing_patient = (
-        db.query(Patient)
-        .filter(Patient.user_id == patient_id)
-        .first()
-    )
     if not existing_patient:
         existing_patient = Patient(
             user_id=patient_id,
@@ -175,6 +192,17 @@ def book_appointment(
         consultation_fee=consultation_fee,
         message=message,
     )
+
+
+def _parse_time(value: str) -> time:
+    """Parse HH:MM string to a time object, raising 422 on invalid format."""
+    try:
+        return datetime.strptime(value, "%H:%M").time()
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid time format: '{value}'. Expected HH:MM.",
+        )
 
 
 def _validate_slot_with_doctor_service(request: BookAppointmentRequest) -> dict:

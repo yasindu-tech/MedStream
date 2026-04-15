@@ -77,6 +77,12 @@ def validate_slot(
     if not avail_rows:
         return {"valid": False, "reason": f"Doctor has no availability on {day_of_week}"}
 
+    # Validate start_time format before processing availability rows
+    try:
+        datetime.strptime(start_time, "%H:%M")
+    except (ValueError, TypeError):
+        return {"valid": False, "reason": f"Invalid time format: '{start_time}'. Expected HH:MM."}
+
     # 4. Find the availability row that covers this start_time and matches consultation_type
     for avail in avail_rows:
         # Check consultation_type match

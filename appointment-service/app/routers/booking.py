@@ -7,8 +7,9 @@ Requires a valid JWT with role = patient.
 """
 from __future__ import annotations
 from typing import Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -38,11 +39,23 @@ def create_booking(
 
     Supports idempotent requests via the X-Idempotency-Key header.
     """
-    patient_id = user.get("sub")  # JWT subject = user UUID
+    sub = user.get("sub")
+    if not sub:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token missing subject claim",
+        )
+    try:
+        UUID(sub)
+    except (ValueError, AttributeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid subject claim in token",
+        )
 
     return book_appointment(
         db,
-        patient_id=patient_id,
+        patient_id=sub,
         request=request,
         idempotency_key=x_idempotency_key,
     )
