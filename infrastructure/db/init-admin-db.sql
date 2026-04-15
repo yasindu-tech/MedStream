@@ -78,6 +78,13 @@ CREATE TABLE IF NOT EXISTS admin.doctors (
     created_at               timestamptz NOT NULL DEFAULT now()
 );
 
+-- Ensure new profile columns exist on databases created before AS-02
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS bio                 text;
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS experience_years    int;
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS qualifications      text;
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS profile_image_url   text;
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS consultation_fee    numeric(10,2);
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_doctors_medical_registration_no
     ON admin.doctors (medical_registration_no)
     WHERE medical_registration_no IS NOT NULL;
