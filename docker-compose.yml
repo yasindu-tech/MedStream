@@ -11,6 +11,8 @@ services:
       - patient-service
       - clinic-service
       - appointment-service
+      - doctor-service
+      - telemedicine-service
       - payment-service
       - notification-service
     networks:
@@ -164,6 +166,30 @@ services:
       DOCTOR_SERVICE_URL: http://doctor-service:8000
     ports:
       - "8004:8000"
+    networks:
+      - medstream-net
+
+  doctor-service:
+    build: ./doctor-service
+    depends_on:
+      admin_db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@admin_db:5432/medstream_admin
+    ports:
+      - "8007:8000"
+    networks:
+      - medstream-net
+
+  telemedicine-service:
+    build: ./telemedicine-service
+    depends_on:
+      patientcare_db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@patientcare_db:5432/medstream_patientcare
+    ports:
+      - "8008:8000"
     networks:
       - medstream-net
 

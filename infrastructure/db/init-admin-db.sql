@@ -32,6 +32,35 @@ CREATE TABLE IF NOT EXISTS admin.clinics (
     created_at       timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_clinics_registration_no
+    ON admin.clinics (registration_no)
+    WHERE registration_no IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_clinics_email
+    ON admin.clinics (email)
+    WHERE email IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS admin.clinic_admins (
+    clinic_admin_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    clinic_id uuid NOT NULL,
+    user_id uuid,
+    status varchar(30) NOT NULL DEFAULT 'active',
+    assigned_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT fk_clinic_admins_clinic
+        FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS admin.clinic_staff (
+    staff_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    clinic_id uuid NOT NULL,
+    user_id uuid,
+    staff_role varchar(100),
+    status varchar(30) NOT NULL DEFAULT 'active',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT fk_clinic_staff_clinic
+        FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS admin.doctors (
     doctor_id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id                  uuid,
@@ -43,6 +72,10 @@ CREATE TABLE IF NOT EXISTS admin.doctors (
     status                   varchar(30) NOT NULL DEFAULT 'active',
     created_at               timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_doctors_medical_registration_no
+    ON admin.doctors (medical_registration_no)
+    WHERE medical_registration_no IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS admin.doctor_clinic_assignments (
     assignment_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -71,6 +104,7 @@ CREATE TABLE IF NOT EXISTS admin.doctor_availability (
 );
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA admin TO dev_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA admin TO dev_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA admin GRANT ALL ON TABLES TO dev_user;
 
 -- ============================================================
