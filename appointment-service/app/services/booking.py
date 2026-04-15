@@ -86,7 +86,8 @@ def book_appointment(
             Appointment.doctor_id == request.doctor_id,
             Appointment.clinic_id == request.clinic_id,
             Appointment.appointment_date == request.date,
-            Appointment.start_time == start_time_obj,
+            Appointment.start_time < end_time_obj,
+            Appointment.end_time > start_time_obj,
             Appointment.status.in_(OCCUPIED_STATUSES),
         )
         .first()
