@@ -17,7 +17,7 @@ GRANT CONNECT ON DATABASE medstream_auth TO dev_user;
 CREATE SCHEMA IF NOT EXISTS auth;
 GRANT ALL ON SCHEMA auth TO dev_user;
 
-CREATE TYPE auth.roleenum AS ENUM ('admin', 'doctor', 'patient');
+CREATE TYPE auth.roleenum AS ENUM ('admin', 'doctor', 'patient', 'staff');
 
 CREATE TABLE IF NOT EXISTS auth.users (
     id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -48,7 +48,7 @@ VALUES (
     '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2',
     'admin',
     TRUE
-) ON CONFLICT DO NOTHING;
+) ON CONFLICT (email) DO NOTHING;
 
 -- ============================================================
 -- Shared deterministic seed users (for connected local data)
