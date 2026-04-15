@@ -103,6 +103,8 @@ CREATE TABLE IF NOT EXISTS admin.doctor_availability (
     CONSTRAINT fk_avail_clinic FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_doctor_availability_slot
+    ON admin.doctor_availability (doctor_id, clinic_id, day_of_week, start_time, consultation_type);
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA admin TO dev_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA admin TO dev_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA admin GRANT ALL ON TABLES TO dev_user;
