@@ -22,7 +22,7 @@ class BookedSlotResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Public: doctor search response (mirrors doctor-service contract)
+# AS-01: Doctor search response (mirrors doctor-service contract)
 # ---------------------------------------------------------------------------
 
 class SlotItem(BaseModel):
@@ -37,7 +37,7 @@ class DoctorSearchResult(BaseModel):
     consultation_type: Optional[str]
     clinic_id: UUID
     clinic_name: str
-    consultation_fee: Optional[float] = None
+    consultation_fee: Optional[str] = None
     available_slots: List[SlotItem]
     has_slots: bool
 
@@ -46,3 +46,46 @@ class DoctorSearchResponse(BaseModel):
     results: List[DoctorSearchResult]
     total: int
     empty_state: bool
+
+
+# ---------------------------------------------------------------------------
+# AS-02: Doctor profile response (mirrors doctor-service contract)
+# ---------------------------------------------------------------------------
+
+class ClinicDetail(BaseModel):
+    clinic_id: UUID
+    clinic_name: str
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+
+
+class AvailabilityWindow(BaseModel):
+    day_of_week: str
+    start_time: str
+    end_time: str
+    slot_duration: int
+    consultation_type: Optional[str] = None
+
+
+class DoctorProfileClinic(BaseModel):
+    clinic: ClinicDetail
+    availability: List[AvailabilityWindow]
+    available_slots: List[SlotItem]
+    has_slots: bool
+
+
+class DoctorProfileResponse(BaseModel):
+    doctor_id: UUID
+    full_name: str
+    specialization: Optional[str] = None
+    bio: Optional[str] = None
+    experience_years: Optional[int] = None
+    qualifications: Optional[str] = None
+    consultation_mode: Optional[str] = None
+    medical_registration_no: Optional[str] = None
+    verification_status: str
+    profile_image_url: Optional[str] = None
+    consultation_fee: Optional[str] = None
+    profile_complete: bool
+    clinics: List[DoctorProfileClinic]

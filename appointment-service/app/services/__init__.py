@@ -1,4 +1,4 @@
-"""HTTP client for calling doctor-service internally from appointment-service."""
+"""HTTP clients for calling doctor-service internally from appointment-service."""
 from __future__ import annotations
 from datetime import date
 from typing import Optional
@@ -38,6 +38,44 @@ def search_doctors(
             response = client.get(url, params=params)
             response.raise_for_status()
             return response.json()
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Doctor service returned an error: {exc.response.status_code}",
+        )
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Doctor service is currently unavailable. Please try again later.",
+        )
+
+
+def get_doctor_profile(
+    doctor_id: UUID,
+    target_date: Optional[date] = None,
+) -> dict:
+    """
+    Fetch a doctor's full profile from doctor-service.
+    Returns the raw parsed JSON. Raises 404/502/503 as appropriate.
+    """
+    params: dict = {}
+    if target_date:
+        params["date"] = target_date.isoformat()
+
+    url = f"{settings.DOCTOR_SERVICE_URL}/internal/doctors/{doctor_id}/profile"
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(url, params=params)
+            if response.status_code == 404:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Doctor not found, inactive, or unverified",
+                )
+            response.raise_for_status()
+            return response.json()
+    except HTTPException:
+        raise  # re-raise our own 404
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
