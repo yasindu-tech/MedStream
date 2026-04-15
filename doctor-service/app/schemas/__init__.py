@@ -21,7 +21,7 @@ class DoctorSearchResult(BaseModel):
     consultation_type: Optional[str]
     clinic_id: UUID
     clinic_name: str
-    consultation_fee: Optional[float] = None
+    consultation_fee: Optional[str] = None
     available_slots: List[SlotItem]
     has_slots: bool
 
@@ -73,6 +73,6 @@ class DoctorProfileResponse(BaseModel):
     medical_registration_no: Optional[str] = None
     verification_status: str
     profile_image_url: Optional[str] = None
-    consultation_fee: Optional[float] = None
+    consultation_fee: Optional[str] = None
     profile_complete: bool
     clinics: List[DoctorProfileClinic]
