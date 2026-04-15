@@ -114,13 +114,13 @@ def internal_validate_slot(
 
 @router.get("/doctors/by-user/{user_id}", response_model=DoctorIdResponse)
 def internal_doctor_by_user(
-    user_id: str,
+    user_id: UUID,
     db: Session = Depends(get_db),
 ) -> DoctorIdResponse:
     """
     Internal endpoint to resolve an auth user_id to an admin DB doctor_id.
     """
-    doctor = db.query(Doctor).filter(Doctor.user_id == UUID(user_id)).first()
+    doctor = db.query(Doctor).filter(Doctor.user_id == user_id).first()
     if not doctor:
         raise HTTPException(
             status_code=404,
