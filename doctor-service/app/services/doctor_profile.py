@@ -15,25 +15,10 @@ from app.schemas import (
     SlotItem,
 )
 from app.services.appointment_client import get_booked_slots
+from app.services.slots import generate_slots
 
 # TODO: Move to a config table or doctor_availability column in the future
 ADVANCE_BOOKING_DAYS = 14
-
-
-def _generate_slots(start: str, end: str, duration: int, booked: set[str]) -> List[SlotItem]:
-    """Generate free slots between start and end, excluding booked start times."""
-    from datetime import datetime
-    slots: List[SlotItem] = []
-    cur = datetime.strptime(start, "%H:%M")
-    fin = datetime.strptime(end, "%H:%M")
-    delta = timedelta(minutes=duration)
-    while cur + delta <= fin:
-        s = cur.strftime("%H:%M")
-        e = (cur + delta).strftime("%H:%M")
-        if s not in booked:
-            slots.append(SlotItem(start_time=s, end_time=e))
-        cur += delta
-    return slots
 
 
 def get_doctor_profile(
@@ -122,7 +107,7 @@ def get_doctor_profile(
             booked_starts = {b.start_time for b in booked}
             for a in matching:
                 slots.extend(
-                    _generate_slots(a.start_time, a.end_time, a.slot_duration, booked_starts)
+                    generate_slots(a.start_time, a.end_time, a.slot_duration, booked_starts)
                 )
 
         clinic_detail = ClinicDetail(
@@ -151,7 +136,7 @@ def get_doctor_profile(
     ])
 
     # 6. Build the response
-    fee = float(doctor.consultation_fee) if doctor.consultation_fee is not None else None
+    fee = str(doctor.consultation_fee) if doctor.consultation_fee is not None else None
 
     return DoctorProfileResponse(
         doctor_id=doctor.doctor_id,
