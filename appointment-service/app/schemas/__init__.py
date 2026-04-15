@@ -89,3 +89,30 @@ class DoctorProfileResponse(BaseModel):
     consultation_fee: Optional[str] = None
     profile_complete: bool
     clinics: List[DoctorProfileClinic]
+
+
+# ---------------------------------------------------------------------------
+# AS-03: Booking request/response
+# ---------------------------------------------------------------------------
+
+class BookAppointmentRequest(BaseModel):
+    doctor_id: UUID
+    clinic_id: UUID
+    date: date              # YYYY-MM-DD
+    start_time: str         # "HH:MM"
+    consultation_type: str  # "physical" or "telemedicine"
+
+
+class BookAppointmentResponse(BaseModel):
+    appointment_id: UUID
+    doctor_name: str
+    clinic_name: str
+    date: date
+    start_time: str
+    end_time: str
+    consultation_type: str
+    status: str             # "pending_payment" or "confirmed"
+    payment_status: str     # "pending" or "not_required"
+    consultation_fee: Optional[float] = None
+    message: str
+
