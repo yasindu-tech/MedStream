@@ -45,7 +45,7 @@ class Appointment(Base):
     cancelled_by = Column(String(30), nullable=True)
     rescheduled_from_date = Column(Date, nullable=True)
     rescheduled_from_start_time = Column(Time, nullable=True)
-    idempotency_key = Column(String(255), nullable=True, unique=True)
+    idempotency_key = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
