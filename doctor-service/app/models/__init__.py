@@ -16,7 +16,7 @@ class Doctor(Base):
     medical_registration_no = Column(String(120), nullable=True)
     specialization = Column(String(120), nullable=True)
     consultation_mode = Column(String(40), nullable=True)
-    verification_status = Column(String(30), nullable=False, default="pending")
+    verification_status = Column(String(30), nullable=False, default="verified")
     status = Column(String(30), nullable=False, default="active")
     bio = Column(Text, nullable=True)
     experience_years = Column(Integer, nullable=True)

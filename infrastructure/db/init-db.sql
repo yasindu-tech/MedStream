@@ -17,7 +17,24 @@ GRANT CONNECT ON DATABASE medstream_auth TO dev_user;
 CREATE SCHEMA IF NOT EXISTS auth;
 GRANT ALL ON SCHEMA auth TO dev_user;
 
-CREATE TYPE auth.roleenum AS ENUM ('admin', 'doctor', 'patient', 'staff');
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_type t
+        JOIN pg_namespace n ON n.oid = t.typnamespace
+        WHERE t.typname = 'roleenum'
+          AND n.nspname = 'auth'
+    ) THEN
+        CREATE TYPE auth.roleenum AS ENUM ('admin', 'doctor', 'patient', 'staff');
+    END IF;
+
+    ALTER TYPE auth.roleenum ADD VALUE IF NOT EXISTS 'admin';
+    ALTER TYPE auth.roleenum ADD VALUE IF NOT EXISTS 'doctor';
+    ALTER TYPE auth.roleenum ADD VALUE IF NOT EXISTS 'patient';
+    ALTER TYPE auth.roleenum ADD VALUE IF NOT EXISTS 'staff';
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS auth.users (
     id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -64,4 +81,9 @@ VALUES
     ('55555555-5555-4555-8555-555555555555', 'nimali.silva@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', 'patient', TRUE, TRUE),
     ('66666666-6666-4666-8666-666666666666', 'clinic.admin@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', 'staff', TRUE, TRUE),
     ('77777777-7777-4777-8777-777777777777', 'clinic.staff@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', 'staff', TRUE, TRUE)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (email) DO UPDATE
+SET
+    password = EXCLUDED.password,
+    role = EXCLUDED.role,
+    is_active = EXCLUDED.is_active,
+    is_verified = EXCLUDED.is_verified;
