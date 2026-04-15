@@ -194,13 +194,27 @@ ON CONFLICT (session_id) DO NOTHING;
 INSERT INTO patientcare.consultation_notes (
     note_id, appointment_id, patient_id, doctor_id, diagnosis, symptoms, advice
 ) VALUES
-    ('d3d3d3d3-d3d3-43d3-83d3-d3d3d3d3d3d3', 'abababab-abab-4ab1-8ab1-ababababab13', '99999999-9999-4999-8999-999999999991', 'dddddddd-dddd-4ddd-8ddd-ddddddddddd2', 'Seasonal dermatitis', 'Itchy skin on forearm', 'Use moisturizer twice daily and avoid harsh soaps')
+    (
+        'd3d3d3d3-d3d3-43d3-83d3-d3d3d3d3d3d3',
+        'abababab-abab-4ab1-8ab1-ababababab13',
+        '99999999-9999-4999-8999-999999999991',
+        (SELECT doctor_id FROM patientcare.appointments WHERE appointment_id = 'abababab-abab-4ab1-8ab1-ababababab13'),
+        'Seasonal dermatitis',
+        'Itchy skin on forearm',
+        'Use moisturizer twice daily and avoid harsh soaps'
+    )
 ON CONFLICT (note_id) DO NOTHING;
 
 INSERT INTO patientcare.prescriptions (
     prescription_id, appointment_id, patient_id, doctor_id, notes
 ) VALUES
-    ('e4e4e4e4-e4e4-44e4-84e4-e4e4e4e4e4e4', 'abababab-abab-4ab1-8ab1-ababababab13', '99999999-9999-4999-8999-999999999991', 'dddddddd-dddd-4ddd-8ddd-ddddddddddd2', 'Take after meals')
+    (
+        'e4e4e4e4-e4e4-44e4-84e4-e4e4e4e4e4e4',
+        'abababab-abab-4ab1-8ab1-ababababab13',
+        '99999999-9999-4999-8999-999999999991',
+        (SELECT doctor_id FROM patientcare.appointments WHERE appointment_id = 'abababab-abab-4ab1-8ab1-ababababab13'),
+        'Take after meals'
+    )
 ON CONFLICT (prescription_id) DO NOTHING;
 
 INSERT INTO patientcare.prescription_items (
