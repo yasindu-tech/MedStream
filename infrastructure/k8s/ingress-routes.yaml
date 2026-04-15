@@ -36,6 +36,20 @@ spec:
                 name: appointment-service
                 port:
                   number: 8000
+          - path: /doctors
+            pathType: Prefix
+            backend:
+              service:
+                name: doctor-service
+                port:
+                  number: 8000
+          - path: /telemedicine
+            pathType: Prefix
+            backend:
+              service:
+                name: telemedicine-service
+                port:
+                  number: 8000
           - path: /payments
             pathType: Prefix
             backend:
