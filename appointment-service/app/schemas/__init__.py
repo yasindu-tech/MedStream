@@ -116,3 +116,31 @@ class BookAppointmentResponse(BaseModel):
     consultation_fee: Optional[float] = None
     message: str
 
+
+# ---------------------------------------------------------------------------
+# AS-04: Follow-up suggestions
+# ---------------------------------------------------------------------------
+
+class FollowUpSuggestRequest(BaseModel):
+    original_appointment_id: UUID
+    suggested_date: date
+    suggested_start_time: str  # "HH:MM"
+    consultation_type: str     # "physical" or "telemedicine"
+    notes: Optional[str] = None
+
+
+class FollowUpSuggestionResponse(BaseModel):
+    suggestion_id: UUID
+    original_appointment_id: UUID
+    doctor_id: UUID
+    doctor_name: str
+    patient_id: UUID
+    clinic_id: Optional[UUID]
+    suggested_date: date
+    suggested_start_time: str
+    suggested_end_time: str
+    consultation_type: str
+    notes: Optional[str]
+    status: str
+    message: str
+
