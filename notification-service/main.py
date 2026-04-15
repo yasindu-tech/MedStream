@@ -1,8 +1,53 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.database import engine, Base
+from app.routers import events, inbox, templates, preferences
+from app.services.notification_service import seed_default_templates
+from app.config import settings
+import logging
 
-app = FastAPI(title="notification-service", version="0.1.0")
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Create tables if they don't exist and seed default templates
+    logger.info(f"Starting {settings.SERVICE_NAME}...")
+    async with engine.begin() as conn:
+        # Note: In production with multiple schemas, we ensure the schema exists first.
+        # But for this project, the init SQL handles schema creation.
+        await conn.run_sync(Base.metadata.create_all)
+    
+    await seed_default_templates()
+    logger.info(f"{settings.SERVICE_NAME} started on port {settings.SERVICE_PORT}")
+    yield
+    # Shutdown
+    logger.info(f"Shutting down {settings.SERVICE_NAME}...")
+    await engine.dispose()
 
-@app.get("/health", tags=["health"])
-def health_check() -> dict[str, str]:
-    return {"status": "ok", "service": "notification-service"}
+app = FastAPI(
+    title="MedStream Notification Service",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware, 
+    allow_origins=["*"], 
+    allow_methods=["*"], 
+    allow_headers=["*"]
+)
+
+# Include routers
+# Include routers
+app.include_router(events.router,      tags=["events"])
+app.include_router(inbox.router,       tags=["inbox"])
+app.include_router(templates.router,   tags=["templates"])
+app.include_router(preferences.router, tags=["preferences"])
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": settings.SERVICE_NAME}
