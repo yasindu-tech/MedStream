@@ -83,7 +83,6 @@ VALUES
     ('77777777-7777-4777-8777-777777777777', 'clinic.staff@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', 'staff', TRUE, TRUE)
 ON CONFLICT (email) DO UPDATE
 SET
-    id = EXCLUDED.id,
     password = EXCLUDED.password,
     role = EXCLUDED.role,
     is_active = EXCLUDED.is_active,
