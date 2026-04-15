@@ -91,3 +91,12 @@ class SlotValidationResponse(BaseModel):
     end_time: Optional[str] = None
     slot_duration: Optional[int] = None
 
+
+# ---------------------------------------------------------------------------
+# AS-04: User resolve schema
+# ---------------------------------------------------------------------------
+
+class DoctorIdResponse(BaseModel):
+    doctor_id: UUID
+    full_name: str
+

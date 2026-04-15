@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from app.routers.internal import router as internal_router
 from app.routers.search import router as search_router
 from app.routers.booking import router as booking_router
+from app.routers.followup import router as followup_router
 
 app = FastAPI(title="appointment-service", version="0.1.0")
 
@@ -13,6 +14,9 @@ app.include_router(search_router)
 
 # Public: JWT required, exposed via nginx at /appointments/appointments/book
 app.include_router(booking_router)
+
+# Public: JWT required, exposed via nginx at /appointments/appointments/follow-ups
+app.include_router(followup_router)
 
 
 @app.get("/health", tags=["health"])
