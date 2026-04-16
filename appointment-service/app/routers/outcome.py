@@ -19,7 +19,7 @@ router = APIRouter(tags=["Appointment Outcomes"])
 def mark_arrived_endpoint(
     request: MarkArrivedRequest,
     appointment_id: UUID = Path(...),
-    user: dict = Depends(require_roles("doctor", "clinic_admin", "super_admin")),
+    user: dict = Depends(require_roles("doctor", "staff", "admin")),
     db: Session = Depends(get_db),
 ) -> AppointmentOutcomeResponse:
     appt = mark_arrived(
@@ -40,7 +40,7 @@ def mark_arrived_endpoint(
 @router.post("/appointments/{appointment_id}/complete", response_model=AppointmentOutcomeResponse)
 def mark_completed_endpoint(
     appointment_id: UUID = Path(...),
-    user: dict = Depends(require_roles("doctor", "clinic_admin", "super_admin")),
+    user: dict = Depends(require_roles("doctor", "staff", "admin")),
     db: Session = Depends(get_db),
 ) -> AppointmentOutcomeResponse:
     appt = mark_completed(

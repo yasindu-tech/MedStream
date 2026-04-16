@@ -74,7 +74,7 @@ def mark_completed(
 
     now_dt = datetime.now()
     appt_dt = datetime.combine(appt.appointment_date, appt.start_time)
-    if now_dt < appt_dt and actor_role not in {"super_admin", "clinic_admin"}:
+    if now_dt < appt_dt and actor_role not in {"admin", "staff"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot mark appointment as completed before scheduled time",
@@ -133,7 +133,7 @@ def mark_no_show(
     now_dt = datetime.now()
     appt_dt = datetime.combine(appt.appointment_date, appt.start_time)
     grace_deadline = appt_dt.timestamp() + (policy.no_show_grace_period_minutes * 60)
-    if now_dt.timestamp() < grace_deadline and actor_role not in {"super_admin", "clinic_admin"}:
+    if now_dt.timestamp() < grace_deadline and actor_role not in {"admin", "staff"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No-show grace period has not elapsed yet",
