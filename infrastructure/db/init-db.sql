@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS auth.users (
     email          TEXT      UNIQUE NOT NULL,
     phone          TEXT      UNIQUE,
     password_hash  TEXT      NOT NULL,
-    is_verified    BOOLEAN   NOT NULL DEFAULT FALSE,
+    is_verified    BOOLEAN   NOT NULL DEFAULT TRUE,
     account_status TEXT      NOT NULL DEFAULT 'ACTIVE',
     created_at     TIMESTAMP NOT NULL DEFAULT NOW()
 );
