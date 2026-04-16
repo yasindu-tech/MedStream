@@ -138,8 +138,8 @@ def reschedule_appointment(
 
     # If the patient reschedules from a free consultation to a paid one
     if consultation_fee and consultation_fee > 0 and appt.payment_status == "not_required":
-         new_status = "pending_payment"
-         new_payment_status = "pending"
+        new_status = "pending_payment"
+        new_payment_status = "pending"
     # Or if a reschedule fee is required, that would trigger pending_payment.
     # TODO: Calculate if any rescheduling fees apply by querying payment-service
 
