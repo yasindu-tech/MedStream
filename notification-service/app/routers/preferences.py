@@ -1,58 +1,47 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from app.database import get_db
-from app.schemas.notification import PreferenceRead, PreferenceUpdate
-from app.models.notification import UserNotificationPreference
-from app.middleware import get_current_user
 from uuid import UUID
-from typing import Dict
 
-router = APIRouter()
+from app.database import get_db
+from app.models.notification import NotificationPreference
+from app.middleware import get_current_user
 
-@router.get("/preferences", response_model=PreferenceRead)
-async def get_preferences(
+router = APIRouter(prefix="/preferences")
+
+@router.get("/")
+async def get_my_preferences(
     db: AsyncSession = Depends(get_db),
-    current_user: Dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     user_id = UUID(current_user["user_id"])
-    stmt = select(UserNotificationPreference).where(UserNotificationPreference.user_id == user_id)
+    stmt = select(NotificationPreference).where(NotificationPreference.user_id == user_id)
     result = await db.execute(stmt)
     prefs = result.scalar_one_or_none()
     
     if not prefs:
-        # Return defaults if no record exists
-        return {
-            "user_id": user_id,
-            "email_enabled": True,
-            "in_app_enabled": True
-        }
-        
+        # Return defaults if not set
+        return {"email_enabled": True, "sms_enabled": True, "in_app_enabled": True}
+    
     return prefs
 
-@router.put("/preferences", response_model=PreferenceRead)
+@router.post("/")
 async def update_preferences(
-    pref_data: PreferenceUpdate,
+    data: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: Dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     user_id = UUID(current_user["user_id"])
-    stmt = select(UserNotificationPreference).where(UserNotificationPreference.user_id == user_id)
+    stmt = select(NotificationPreference).where(NotificationPreference.user_id == user_id)
     result = await db.execute(stmt)
     prefs = result.scalar_one_or_none()
     
-    if prefs:
-        for key, value in pref_data.model_dump(exclude_unset=True).items():
-            setattr(prefs, key, value)
-    else:
-        # Upsert: create if not exists
-        prefs = UserNotificationPreference(
-            user_id=user_id,
-            email_enabled=pref_data.email_enabled if pref_data.email_enabled is not None else True,
-            in_app_enabled=pref_data.in_app_enabled if pref_data.in_app_enabled is not None else True
-        )
+    if not prefs:
+        prefs = NotificationPreference(user_id=user_id, **data)
         db.add(prefs)
-        
+    else:
+        for key, value in data.items():
+            setattr(prefs, key, value)
+            
     await db.commit()
-    await db.refresh(prefs)
-    return prefs
+    return {"status": "success"}
