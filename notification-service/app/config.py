@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     SERVICE_NAME: str = "notification-service"
     SERVICE_PORT: int = 8007
 
+    # SMS Settings
+    TEXT_LK_API_TOKEN: Optional[str] = None
+    TEXT_LK_SENDER_ID: str = "MedStream"
+    
     class Config:
         env_file = ".env"
 

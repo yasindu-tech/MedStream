@@ -11,6 +11,7 @@ from app.models.notification import (
     Notification
 )
 from app.services.email_service import EmailService
+from app.services.sms_service import SMSService
 from app.services.template_service import TemplateService
 from app.services.websocket_service import manager
 from app.database import SessionLocal
@@ -33,19 +34,27 @@ async def process_notification_queue():
 
         for item in items:
             try:
-                # 1. Dispatch Email (Simplified for unified model)
+                # 3. Dispatch Layer (Route by channel)
+                success = False
                 if item.channel == "email":
                     success = EmailService.send_email(
                         to_email=item.payload.get("email", "patient@medstream.lk") if hasattr(item, 'payload') else "patient@medstream.lk",
                         subject=item.title,
                         html_content=item.message
                     )
+                elif item.channel == "sms":
+                    # Use phone from payload if available, else fallback
+                    phone = item.payload.get("phone", "94710000000") if hasattr(item, 'payload') else "94710000000"
+                    success = await SMSService.send_sms(
+                        recipient=phone,
+                        message=item.message
+                    )
 
-                    if success:
-                        item.status = 'sent'
-                        item.sent_at = datetime.utcnow()
-                    else:
-                        item.status = 'failed'
+                if success:
+                    item.status = 'sent'
+                    item.sent_at = datetime.utcnow()
+                else:
+                    item.status = 'failed'
                 
             except Exception as e:
                 logger.error(f"Error in background worker for item {item.notification_id}: {e}")
