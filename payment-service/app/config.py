@@ -1,11 +1,10 @@
+"""Payment service configuration and settings."""
+
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
-    DATABASE_URL: str
-    SECRET_KEY: str = "your-super-secret-key-change-in-production"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    DATABASE_URL: str = "postgresql+psycopg2://dev_user:dev_password@localhost:5435/medstream_finance"
     CORS_ALLOWED_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
     CORS_ALLOW_CREDENTIALS: bool = True
 
@@ -23,5 +22,6 @@ class Settings(BaseSettings):
     @property
     def cors_allow_credentials(self) -> bool:
         return self.CORS_ALLOW_CREDENTIALS
+
 
 settings = Settings()
