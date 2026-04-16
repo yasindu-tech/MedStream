@@ -117,7 +117,8 @@ def reschedule_appointment(
             Appointment.doctor_id == appt.doctor_id,
             Appointment.clinic_id == appt.clinic_id,
             Appointment.appointment_date == request.new_date,
-            Appointment.start_time == new_start_time_obj,
+            Appointment.start_time < new_end_time_obj,
+            Appointment.end_time > new_start_time_obj,
             Appointment.status.in_(OCCUPIED_STATUSES),
             Appointment.appointment_id != appt.appointment_id,  # Don't collide with self
         )
