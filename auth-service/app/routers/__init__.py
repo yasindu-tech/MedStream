@@ -26,9 +26,9 @@ def me(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
 
 # --- Role-gated example endpoints (consumed by other services via gateway) ---
 @router.get("/admin-only")
-def admin_only(user=Depends(require_roles("super_admin"))):
-    return {"message": f"Hello super admin {user['sub']}"}
+def admin_only(user=Depends(require_roles("admin"))):
+    return {"message": f"Hello admin {user['sub']}"}
 
 @router.get("/doctor-or-admin")
-def doctor_or_admin(user=Depends(require_roles("super_admin", "doctor"))):
+def doctor_or_admin(user=Depends(require_roles("admin", "doctor"))):
     return {"message": f"Hello {user['role']} {user['sub']}"}

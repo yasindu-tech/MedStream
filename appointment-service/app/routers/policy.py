@@ -14,7 +14,7 @@ router = APIRouter(prefix="/admin/policies", tags=["Appointment Policies"])
 
 @router.get("/active", response_model=AppointmentPolicyResponse)
 def get_active_policy(
-    user: dict = Depends(require_roles("super_admin")),
+    user: dict = Depends(require_roles("admin")),
     db: Session = Depends(get_db),
 ) -> AppointmentPolicyResponse:
     policy = get_or_create_active_policy(db)
@@ -35,10 +35,10 @@ def get_active_policy(
 @router.put("/active", response_model=AppointmentPolicyResponse)
 def put_active_policy(
     request: UpdateAppointmentPolicyRequest,
-    user: dict = Depends(require_roles("super_admin")),
+    user: dict = Depends(require_roles("admin")),
     db: Session = Depends(get_db),
 ) -> AppointmentPolicyResponse:
-    policy = update_active_policy(db, request=request, changed_by=f"super_admin:{user['sub']}")
+    policy = update_active_policy(db, request=request, changed_by=f"admin:{user['sub']}")
     return AppointmentPolicyResponse(
         policy_id=policy.policy_id,
         cancellation_window_hours=policy.cancellation_window_hours,

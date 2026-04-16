@@ -11,7 +11,7 @@ from sqlalchemy import desc
 
 from app.models import Appointment, Patient
 from app.schemas import AppointmentListItemResponse, AppointmentListPaginatedResponse
-from app.services.clinic_scope import resolve_clinic_admin_clinic_id
+from app.services.clinic_scope import resolve_staff_clinic_id
 from app.services.followup import _get_doctor_info_by_user
 
 def fetch_appointment_history(
@@ -48,10 +48,10 @@ def fetch_appointment_history(
         doctor_id = UUID(doctor_info["doctor_id"])
         query = query.filter(Appointment.doctor_id == doctor_id)
         
-    elif role == "super_admin":
+    elif role == "admin":
         pass
-    elif role == "clinic_admin":
-        clinic_id = resolve_clinic_admin_clinic_id(user_id)
+    elif role == "staff":
+        clinic_id = resolve_staff_clinic_id(user_id)
         query = query.filter(Appointment.clinic_id == clinic_id)
     else:
         raise HTTPException(

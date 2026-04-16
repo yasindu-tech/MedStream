@@ -5,9 +5,8 @@ from app.database import Base
 import uuid, enum, datetime
 
 class RoleEnum(str, enum.Enum):
-    super_admin = "super_admin"
-    clinic_admin = "clinic_admin"
-    doctor = "doctor"
+    admin   = "admin"
+    doctor  = "doctor"
     patient = "patient"
 
 role_type = PgEnum(
