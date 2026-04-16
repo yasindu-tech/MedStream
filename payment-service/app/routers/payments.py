@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query, Header, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
+from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from uuid import UUID
 import logging
@@ -59,7 +60,10 @@ async def get_payment(
     current_user: dict = Depends(require_any_auth)
 ):
     """Returns a full payment record with splits and refunds."""
-    stmt = select(Payment).where(Payment.payment_id == payment_id)
+    stmt = select(Payment).options(
+        selectinload(Payment.splits),
+        selectinload(Payment.refunds)
+    ).where(Payment.payment_id == payment_id)
     result = await db.execute(stmt)
     payment = result.scalar_one_or_none()
 
@@ -82,7 +86,10 @@ async def get_payment_by_appointment(
     current_user: dict = Depends(require_any_auth)
 ):
     """Returns payment record for a given appointment."""
-    stmt = select(Payment).where(Payment.appointment_id == appointment_id)
+    stmt = select(Payment).options(
+        selectinload(Payment.splits),
+        selectinload(Payment.refunds)
+    ).where(Payment.appointment_id == appointment_id)
     result = await db.execute(stmt)
     payment = result.scalar_one_or_none()
 
@@ -107,7 +114,10 @@ async def list_payments(
     current_user: dict = Depends(require_any_auth)
 ):
     """Lists payments based on role and filters."""
-    query = select(Payment).order_by(desc(Payment.created_at))
+    query = select(Payment).options(
+        selectinload(Payment.splits),
+        selectinload(Payment.refunds)
+    ).order_by(desc(Payment.created_at))
 
     if current_user["role"] == "patient":
         query = query.where(Payment.patient_id == UUID(current_user["user_id"]))
@@ -147,16 +157,18 @@ async def retry_payment(
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
-    if payment.status != PaymentStatus.FAILED:
+    if payment.status != PaymentStatus.failed:
         raise HTTPException(status_code=400, detail="Only failed payments can be retried")
 
     if payment.retry_count >= payment.max_retries:
         raise HTTPException(status_code=400, detail="Maximum retry limit reached")
 
-    payment.status = PaymentStatus.PENDING
+    payment.status = PaymentStatus.pending
     payment.transaction_reference = None
     await db.commit()
     return payment
+
+    return {"status": "success"}
 
 @router.post("/webhook", status_code=200)
 async def stripe_webhook(
@@ -206,6 +218,26 @@ async def stripe_webhook(
 
     return {"status": "success"}
 
+@router.post("/mock-confirm", status_code=200)
+async def mock_payment_confirm(
+    data: MockPayRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Bypasses Stripe to manually confirm a payment (Dev Only)."""
+    if not settings.ENABLE_STRIPE_MOCK:
+        raise HTTPException(status_code=403, detail="Mock mode is disabled")
+
+    stmt = select(Payment).where(Payment.payment_id == data.payment_id)
+    result = await db.execute(stmt)
+    payment = result.scalar_one_or_none()
+
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+        
+    transaction_id = f"mock_tx_{payment.payment_id}"
+    await PaymentService.confirm_payment(db, payment, transaction_id)
+    return {"status": "confirmed", "transaction_id": transaction_id}
+
 @router.get("/{payment_id}/receipt")
 async def get_receipt(
     payment_id: UUID,
@@ -213,7 +245,7 @@ async def get_receipt(
     current_user: dict = Depends(require_any_auth)
 ):
     """Returns a JSON receipt for a paid payment."""
-    stmt = select(Payment).where(Payment.payment_id == payment_id, Payment.status == PaymentStatus.PAID)
+    stmt = select(Payment).where(Payment.payment_id == payment_id, Payment.status == PaymentStatus.paid)
     result = await db.execute(stmt)
     payment = result.scalar_one_or_none()
 

@@ -58,10 +58,10 @@ app.add_middleware(
 
 # Include routers
 # Include routers
-app.include_router(events.router,      tags=["events"])
-app.include_router(inbox.router,       tags=["inbox"])
-app.include_router(templates.router,   tags=["templates"])
-app.include_router(preferences.router, tags=["preferences"])
+app.include_router(events.router,      prefix="/api/notifications", tags=["events"])
+app.include_router(inbox.router,       prefix="/api/notifications", tags=["inbox"])
+app.include_router(templates.router,   prefix="/api/notifications", tags=["templates"])
+app.include_router(preferences.router, prefix="/api/notifications", tags=["preferences"])
 
 @app.get("/health")
 async def health():

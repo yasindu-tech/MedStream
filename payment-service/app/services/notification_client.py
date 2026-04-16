@@ -1,5 +1,6 @@
 import httpx
 import logging
+from datetime import datetime, timezone
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -12,7 +13,7 @@ async def send_notification(event_type: str, user_id: str, payload: dict, priori
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.post(
-                f"{settings.NOTIFICATION_SERVICE_URL}/api/notifications/events",
+                f"{settings.NOTIFICATION_SERVICE_URL.rstrip('/')}/events",
                 json={
                     "event_type": event_type,
                     "user_id": user_id,
