@@ -3,7 +3,9 @@ from .notification import (
     NotificationChannel,
     NotificationStatus,
     NotificationTemplate,
-    UserNotificationPreference,
+    Notification,
     NotificationQueue,
-    NotificationHistory
+    NotificationHistory,
+    NotificationPreference,
+    UserNotificationPreference
 )
