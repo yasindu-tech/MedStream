@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 from app.routers import events, inbox, templates, preferences
 from app.services.notification_service import seed_default_templates
+from app.services.websocket_service import manager
+from app.middleware import get_current_user
 from app.config import settings
 import logging
 
@@ -51,3 +53,13 @@ app.include_router(preferences.router, tags=["preferences"])
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": settings.SERVICE_NAME}
+
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    await manager.connect(websocket, user_id)
+    try:
+        while True:
+            # Keep connection alive
+            await websocket.receive_text()
+    except Exception:
+        manager.disconnect(websocket, user_id)
