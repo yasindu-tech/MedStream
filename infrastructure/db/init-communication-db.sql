@@ -46,6 +46,33 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Backward-compatible migration for older notification schema variants.
+ALTER TABLE IF EXISTS communication.notifications
+    ADD COLUMN IF NOT EXISTS event_type VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS title VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS message TEXT;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.table_constraints tc
+        WHERE tc.constraint_schema = 'communication'
+          AND tc.table_name = 'notifications'
+          AND tc.constraint_name = 'fk_notifications_template'
+    ) THEN
+        ALTER TABLE communication.notifications
+            DROP CONSTRAINT fk_notifications_template;
+    END IF;
+END
+$$;
+
+ALTER TABLE IF EXISTS communication.notifications
+    ADD CONSTRAINT fk_notifications_template
+    FOREIGN KEY (template_id)
+    REFERENCES communication.notification_templates(template_id)
+    ON DELETE SET NULL;
+
 -- NOTIFICATION_PREFERENCES Table
 CREATE TABLE IF NOT EXISTS notification_preferences (
     preference_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

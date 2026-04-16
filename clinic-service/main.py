@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import Base, engine
 from app.routers import router as clinics_router
+from app.routers.internal import router as internal_router
 
 import app.models  # noqa: F401
 
