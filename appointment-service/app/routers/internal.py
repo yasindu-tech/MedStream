@@ -139,6 +139,31 @@ def internal_mark_arrived(
     )
 
 
+@router.get("/clinics/{clinic_id}/pending-future-appointments")
+def internal_get_clinic_pending_future_appointments(
+    clinic_id: UUID = Path(...),
+    db: Session = Depends(get_db),
+) -> dict:
+    now = datetime.utcnow()
+    pending_statuses = {"scheduled", "confirmed", "pending_payment"}
+    pending_query = (
+        db.query(Appointment)
+        .filter(
+            Appointment.clinic_id == clinic_id,
+            Appointment.status.in_(pending_statuses),
+            (
+                (Appointment.appointment_date > now.date())
+                | (
+                    (Appointment.appointment_date == now.date())
+                    & (Appointment.start_time >= now.time())
+                )
+            ),
+        )
+    )
+    count = pending_query.count()
+    return {"pending_future_appointments": count}
+
+
 @router.get("/policies/effective")
 def internal_get_effective_policy(db: Session = Depends(get_db)) -> dict:
     policy = resolve_effective_policy(db)

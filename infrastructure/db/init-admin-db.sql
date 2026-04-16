@@ -61,6 +61,16 @@ CREATE TABLE IF NOT EXISTS admin.clinic_staff (
         FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS admin.clinic_status_history (
+    history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    clinic_id uuid NOT NULL,
+    old_status varchar(30),
+    new_status varchar(30) NOT NULL,
+    changed_by varchar(100),
+    reason text,
+    changed_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS admin.doctors (
     doctor_id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id                  uuid,

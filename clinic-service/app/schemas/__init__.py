@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -23,6 +24,20 @@ class ClinicResponse(BaseModel):
     email: EmailStr | None
     status: str
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UpdateClinicStatusRequest(BaseModel):
+    status: Literal["active", "inactive"]
+    reason: str | None = Field(None, description="Optional reason for the status change")
+
+
+class ClinicActionResponse(BaseModel):
+    clinic_id: UUID
+    status: str
+    message: str
 
     class Config:
         from_attributes = True
