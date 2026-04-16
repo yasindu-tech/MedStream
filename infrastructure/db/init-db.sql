@@ -141,8 +141,4 @@ SELECT u.user_id, r.role_id
 FROM auth.users u
 JOIN auth.roles r ON r.role_name = 'clinic_staff'
 WHERE u.email = 'clinic.staff@medstream.lk'
-<<<<<<< HEAD
 ON CONFLICT (user_id, role_id) DO NOTHING;
-=======
-ON CONFLICT (user_id, role_id) DO NOTHING;
->>>>>>> ea0b18601531a99916cf505c4f622e3b1e6e888b
