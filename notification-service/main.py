@@ -1,38 +1,78 @@
-import os
-
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from app.database import engine, Base
+from app.routers import events, inbox, templates, preferences
+from app.services.notification_service import seed_default_templates, process_notification_queue
+from app.services.websocket_service import manager
+from app.middleware import get_current_user
+from app.config import settings
+import logging
+import asyncio
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def _get_allowed_origins() -> list[str]:
-    origins = os.getenv(
-        "CORS_ALLOW_ORIGINS",
-        "http://localhost:5173,http://127.0.0.1:5173",
-    )
-    return [origin.strip() for origin in origins.split(",") if origin.strip()]
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Create tables if they don't exist and seed default templates
+    logger.info(f"Starting {settings.SERVICE_NAME}...")
+    async with engine.begin() as conn:
+        # Note: In production with multiple schemas, we ensure the schema exists first.
+        # But for this project, the init SQL handles schema creation.
+        await conn.run_sync(Base.metadata.create_all)
+    
+    await seed_default_templates()
+    
+    # Start background worker
+    async def worker_loop():
+        while True:
+            try:
+                await process_notification_queue()
+            except Exception as e:
+                logger.error(f"Worker loop error: {e}")
+            await asyncio.sleep(30)  # Check queue every 30 seconds
 
+    asyncio.create_task(worker_loop())
+    
+    logger.info(f"{settings.SERVICE_NAME} started on port {settings.SERVICE_PORT}")
+    yield
+    # Shutdown
+    logger.info(f"Shutting down {settings.SERVICE_NAME}...")
+    await engine.dispose()
 
-def _get_allow_credentials() -> bool:
-    return os.getenv("CORS_ALLOW_CREDENTIALS", "true").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-
-
-app = FastAPI(title="notification-service", version="0.1.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_get_allowed_origins(),
-    allow_credentials=_get_allow_credentials(),
-    allow_methods=["*"],
-    allow_headers=["*"],
+app = FastAPI(
+    title="MedStream Notification Service",
+    version="1.0.0",
+    lifespan=lifespan
 )
 
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware, 
+    allow_origins=["*"], 
+    allow_methods=["*"], 
+    allow_headers=["*"]
+)
 
+# Include routers
+# Include routers
+app.include_router(events.router,      tags=["events"])
+app.include_router(inbox.router,       tags=["inbox"])
+app.include_router(templates.router,   tags=["templates"])
+app.include_router(preferences.router, tags=["preferences"])
 
-@app.get("/health", tags=["health"])
-def health_check() -> dict[str, str]:
-    return {"status": "ok", "service": "notification-service"}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": settings.SERVICE_NAME}
+
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    await manager.connect(websocket, user_id)
+    try:
+        while True:
+            # Keep connection alive
+            await websocket.receive_text()
+    except Exception:
+        manager.disconnect(websocket, user_id)

@@ -1,14 +1,17 @@
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.orm import DeclarativeBase
+from app.config import settings
 
-DEFAULT_DATABASE_URL = "postgresql+psycopg2://dev_user:dev_password@localhost:5436/medstream_communication"
-DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
-
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
+engine = create_async_engine(settings.DATABASE_URL)
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
 
 class Base(DeclarativeBase):
     pass
+
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
