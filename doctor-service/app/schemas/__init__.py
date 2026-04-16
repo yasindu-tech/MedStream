@@ -76,3 +76,27 @@ class DoctorProfileResponse(BaseModel):
     consultation_fee: Optional[str] = None
     profile_complete: bool
     clinics: List[DoctorProfileClinic]
+
+
+# ---------------------------------------------------------------------------
+# AS-03: Slot validation response schema
+# ---------------------------------------------------------------------------
+
+class SlotValidationResponse(BaseModel):
+    valid: bool
+    reason: Optional[str] = None
+    doctor_name: Optional[str] = None
+    clinic_name: Optional[str] = None
+    consultation_fee: Optional[float] = None
+    end_time: Optional[str] = None
+    slot_duration: Optional[int] = None
+
+
+# ---------------------------------------------------------------------------
+# AS-04: User resolve schema
+# ---------------------------------------------------------------------------
+
+class DoctorIdResponse(BaseModel):
+    doctor_id: UUID
+    full_name: str
+

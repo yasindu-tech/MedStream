@@ -18,7 +18,7 @@ from app.schemas import BookedSlotResponse
 router = APIRouter(tags=["internal"])
 
 # Statuses that occupy a slot (cancelled/completed do NOT block)
-OCCUPIED_STATUSES = {"scheduled", "confirmed", "in_progress"}
+OCCUPIED_STATUSES = {"scheduled", "confirmed", "pending_payment", "in_progress"}
 
 
 @router.get("/appointments/booked-slots", response_model=List[BookedSlotResponse])
