@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas import RegisterRequest, LoginRequest, RefreshRequest, TokenResponse, UserResponse
-from app.services import register_user, login_user, refresh_tokens
+from app.services import get_user_profile, register_user, login_user, refresh_tokens
 from app.middleware import get_current_user, require_roles
 
 router = APIRouter(tags=["Auth"])
@@ -21,8 +21,10 @@ def refresh(data: RefreshRequest, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserResponse)
 def me(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
-    from app.models import User
-    return db.query(User).filter(User.id == user["sub"]).first()
+    profile = get_user_profile(user["sub"], db)
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return profile
 
 # --- Role-gated example endpoints (consumed by other services via gateway) ---
 @router.get("/admin-only")
