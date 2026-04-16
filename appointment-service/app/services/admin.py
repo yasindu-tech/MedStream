@@ -1,4 +1,4 @@
-"""Admin and clinic-staff appointment management services."""
+"""Super admin and clinic admin appointment management services."""
 from __future__ import annotations
 
 from datetime import date
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Appointment, AppointmentStatusHistory, Patient
 from app.schemas import AppointmentListItemResponse, AppointmentListPaginatedResponse, AppointmentStatsResponse
-from app.services.clinic_scope import resolve_staff_clinic_id
+from app.services.clinic_scope import resolve_clinic_admin_clinic_id
 
 
 def list_appointments_for_admin(
@@ -33,10 +33,10 @@ def list_appointments_for_admin(
 
     role = user.get("role")
     user_id = user.get("sub")
-    if role == "staff":
-        scoped_clinic_id = resolve_staff_clinic_id(user_id)
+    if role == "clinic_admin":
+        scoped_clinic_id = resolve_clinic_admin_clinic_id(user_id)
         query = query.filter(Appointment.clinic_id == scoped_clinic_id)
-    elif role != "admin":
+    elif role != "super_admin":
         raise ValueError("Invalid role for admin listing")
 
     if patient_id:
@@ -47,7 +47,7 @@ def list_appointments_for_admin(
         query = query.filter(Patient.full_name.ilike(f"%{patient_name}%"))
     if doctor_name:
         query = query.filter(Appointment.doctor_name.ilike(f"%{doctor_name}%"))
-    if clinic_id and role == "admin":
+    if clinic_id and role == "super_admin":
         query = query.filter(Appointment.clinic_id == clinic_id)
     if date_from:
         query = query.filter(Appointment.appointment_date >= date_from)
@@ -100,8 +100,8 @@ def get_status_history_for_admin(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
 
     role = user.get("role")
-    if role == "staff":
-        scoped_clinic_id = resolve_staff_clinic_id(user.get("sub"))
+    if role == "clinic_admin":
+        scoped_clinic_id = resolve_clinic_admin_clinic_id(user.get("sub"))
         if appt.clinic_id != scoped_clinic_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied for appointment outside your clinic")
 
@@ -123,8 +123,8 @@ def get_appointment_stats(
     query = db.query(Appointment)
 
     role = user.get("role")
-    if role == "staff":
-        query = query.filter(Appointment.clinic_id == resolve_staff_clinic_id(user.get("sub")))
+    if role == "clinic_admin":
+        query = query.filter(Appointment.clinic_id == resolve_clinic_admin_clinic_id(user.get("sub")))
 
     if date_from:
         query = query.filter(Appointment.appointment_date >= date_from)

@@ -12,8 +12,7 @@ from app.models import ClinicAdmin, ClinicStaff
 router = APIRouter(tags=["internal"])
 
 
-@router.get("/staff/{user_id}/clinic")
-def get_staff_clinic(user_id: UUID, db: Session = Depends(get_db)) -> dict:
+def _resolve_user_clinic(user_id: UUID, db: Session) -> dict:
     staff = (
         db.query(ClinicStaff)
         .filter(ClinicStaff.user_id == user_id, ClinicStaff.status == "active")
@@ -31,3 +30,14 @@ def get_staff_clinic(user_id: UUID, db: Session = Depends(get_db)) -> dict:
         return {"clinic_id": str(admin.clinic_id), "source": "clinic_admins"}
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active clinic assignment for user")
+
+
+@router.get("/clinic-admin/{user_id}/clinic")
+def get_clinic_admin_clinic(user_id: UUID, db: Session = Depends(get_db)) -> dict:
+    return _resolve_user_clinic(user_id, db)
+
+
+@router.get("/staff/{user_id}/clinic")
+def get_staff_clinic(user_id: UUID, db: Session = Depends(get_db)) -> dict:
+    # Backward-compatible alias for older callers.
+    return _resolve_user_clinic(user_id, db)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
@@ -161,6 +161,15 @@ class RescheduleAppointmentRequest(BaseModel):
 
 class CancelAppointmentRequest(BaseModel):
     reason: Optional[str] = None
+
+
+class CancelAppointmentResponse(BaseModel):
+    appointment_id: UUID = Field(description="Cancelled appointment ID.")
+    status: str = Field(description="Current status after cancellation.")
+    message: str = Field(description="Human-readable cancellation result.")
+
+    class Config:
+        from_attributes = True
 
 
 # ---------------------------------------------------------------------------
