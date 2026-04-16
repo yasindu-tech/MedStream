@@ -154,3 +154,11 @@ class RescheduleAppointmentRequest(BaseModel):
     new_start_time: str  # "HH:MM"
     new_consultation_type: str
 
+
+# ---------------------------------------------------------------------------
+# AS-06: Cancel Appointment
+# ---------------------------------------------------------------------------
+
+class CancelAppointmentRequest(BaseModel):
+    reason: Optional[str] = None
+

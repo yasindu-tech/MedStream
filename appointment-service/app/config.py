@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-super-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     RESCHEDULE_WINDOW_HOURS: int = 24
+    CANCELLATION_WINDOW_HOURS: int = 12
     CORS_ALLOWED_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
     CORS_ALLOW_CREDENTIALS: str = "true"
 
