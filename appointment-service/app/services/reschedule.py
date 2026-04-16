@@ -182,6 +182,10 @@ def reschedule_appointment(
     appt.end_time = new_end_time_obj
     appt.appointment_type = request.new_consultation_type
     
+    # Store names caching resolving potential orphans
+    appt.doctor_name = doctor_name
+    appt.clinic_name = clinic_name
+    
     appt.status = new_status
     appt.payment_status = new_payment_status
     

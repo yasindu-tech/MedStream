@@ -162,3 +162,32 @@ class RescheduleAppointmentRequest(BaseModel):
 class CancelAppointmentRequest(BaseModel):
     reason: Optional[str] = None
 
+
+# ---------------------------------------------------------------------------
+# AS-08: View Appointment History
+# ---------------------------------------------------------------------------
+
+class AppointmentListItemResponse(BaseModel):
+    appointment_id: UUID
+    doctor_id: UUID
+    doctor_name: Optional[str]
+    clinic_id: UUID
+    clinic_name: Optional[str]
+    patient_id: UUID
+    patient_name: str
+    date: date
+    start_time: str
+    end_time: str
+    status: str
+    payment_status: str
+    consultation_type: str
+    # prescription_id: Optional[UUID] = None
+    # payment_id: Optional[UUID] = None
+
+class AppointmentListPaginatedResponse(BaseModel):
+    items: list[AppointmentListItemResponse]
+    total: int
+    page: int
+    size: int
+    has_more: bool
+

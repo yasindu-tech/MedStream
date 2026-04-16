@@ -148,7 +148,9 @@ def book_appointment(
     appointment = Appointment(
         patient_id=existing_patient.patient_id,
         doctor_id=request.doctor_id,
+        doctor_name=doctor_name,
         clinic_id=request.clinic_id,
+        clinic_name=clinic_name,
         appointment_type=request.consultation_type,
         appointment_date=request.date,
         start_time=start_time_obj,
