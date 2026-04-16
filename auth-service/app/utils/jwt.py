@@ -8,9 +8,14 @@ def _create_token(data: dict, expires_delta: timedelta) -> str:
     payload["exp"] = datetime.utcnow() + expires_delta
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
-def create_access_token(user_id: str, role: str) -> str:
+def create_access_token(user_id: str, role: str, roles: list[str] | None = None) -> str:
     return _create_token(
-        {"sub": user_id, "role": role, "type": "access"},
+        {
+            "sub": user_id,
+            "role": role,
+            "roles": roles or [role],
+            "type": "access",
+        },
         timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
 

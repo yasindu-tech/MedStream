@@ -17,40 +17,48 @@ GRANT CONNECT ON DATABASE medstream_auth TO dev_user;
 CREATE SCHEMA IF NOT EXISTS auth;
 GRANT ALL ON SCHEMA auth TO dev_user;
 
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-        FROM pg_type t
-        JOIN pg_namespace n ON n.oid = t.typnamespace
-        WHERE t.typname = 'roleenum'
-          AND n.nspname = 'auth'
-    ) THEN
-        CREATE TYPE auth.roleenum AS ENUM ('admin', 'doctor', 'patient', 'staff');
-    END IF;
-
-    ALTER TYPE auth.roleenum ADD VALUE IF NOT EXISTS 'admin';
-    ALTER TYPE auth.roleenum ADD VALUE IF NOT EXISTS 'doctor';
-    ALTER TYPE auth.roleenum ADD VALUE IF NOT EXISTS 'patient';
-    ALTER TYPE auth.roleenum ADD VALUE IF NOT EXISTS 'staff';
-END
-$$;
-
-CREATE TABLE IF NOT EXISTS auth.users (
-    id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-    email         TEXT          UNIQUE NOT NULL,
-    password      TEXT          NOT NULL,
-    role          auth.roleenum NOT NULL DEFAULT 'patient',
-    is_active     BOOLEAN       NOT NULL DEFAULT TRUE,
-    is_verified   BOOLEAN       NOT NULL DEFAULT TRUE,
-    refresh_token TEXT,
-    created_at    TIMESTAMP     NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS auth.roles (
+    role_id   INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    role_name TEXT      UNIQUE NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS auth.token_blacklist (
-    id         UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
-    token      TEXT      UNIQUE NOT NULL,
-    revoked_at TIMESTAMP NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS auth.users (
+    user_id        UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
+    email          TEXT      UNIQUE NOT NULL,
+    phone          TEXT      UNIQUE,
+    password_hash  TEXT      NOT NULL,
+    is_verified    BOOLEAN   NOT NULL DEFAULT FALSE,
+    account_status TEXT      NOT NULL DEFAULT 'ACTIVE',
+    created_at     TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS auth.user_roles (
+    user_role_id UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id      UUID      NOT NULL REFERENCES auth.users(user_id) ON DELETE CASCADE,
+    role_id      INTEGER   NOT NULL REFERENCES auth.roles(role_id) ON DELETE CASCADE,
+    created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, role_id)
+);
+
+CREATE TABLE IF NOT EXISTS auth.auth_sessions (
+    session_id    UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id       UUID      NOT NULL REFERENCES auth.users(user_id) ON DELETE CASCADE,
+    refresh_token TEXT      UNIQUE NOT NULL,
+    expires_at    TIMESTAMP NOT NULL,
+    is_revoked    BOOLEAN   NOT NULL DEFAULT FALSE,
+    created_at    TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS auth.otp_verifications (
+    otp_id      UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID      NOT NULL REFERENCES auth.users(user_id) ON DELETE CASCADE,
+    otp_code    TEXT      NOT NULL,
+    purpose     TEXT      NOT NULL,
+    expires_at  TIMESTAMP NOT NULL,
+    is_used     BOOLEAN   NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA auth TO dev_user;
@@ -58,13 +66,23 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA auth TO dev_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA auth GRANT ALL ON TABLES    TO dev_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA auth GRANT ALL ON SEQUENCES TO dev_user;
 
+-- Seed default roles
+INSERT INTO auth.roles (role_name, description)
+VALUES
+    ('admin', 'System administrator'),
+    ('clinic_admin', 'Clinic administrator'),
+    ('clinic_staff', 'Clinic staff'),
+    ('doctor', 'Doctor'),
+    ('patient', 'Patient')
+ON CONFLICT (role_name) DO NOTHING;
+
 -- Seed default admin (password = "admin123")
-INSERT INTO auth.users (email, password, role, is_verified)
+INSERT INTO auth.users (email, password_hash, is_verified, account_status)
 VALUES (
     'admin@medstream.lk',
     '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2',
-    'admin',
-    TRUE
+    TRUE,
+    'ACTIVE'
 ) ON CONFLICT (email) DO NOTHING;
 
 -- ============================================================
@@ -72,18 +90,55 @@ VALUES (
 -- password for all seeded users: admin123
 -- ============================================================
 
-INSERT INTO auth.users (id, email, password, role, is_active, is_verified)
+INSERT INTO auth.users (user_id, email, password_hash, is_verified, account_status)
 VALUES
-    ('11111111-1111-4111-8111-111111111111', 'seed.admin@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', 'admin', TRUE, TRUE),
-    ('22222222-2222-4222-8222-222222222222', 'dr.anura@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', 'doctor', TRUE, TRUE),
-    ('33333333-3333-4333-8333-333333333333', 'dr.nadee@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', 'doctor', TRUE, TRUE),
-    ('44444444-4444-4444-8444-444444444444', 'kamal.perera@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', 'patient', TRUE, TRUE),
-    ('55555555-5555-4555-8555-555555555555', 'nimali.silva@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', 'patient', TRUE, TRUE),
-    ('66666666-6666-4666-8666-666666666666', 'clinic.admin@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', 'staff', TRUE, TRUE),
-    ('77777777-7777-4777-8777-777777777777', 'clinic.staff@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', 'staff', TRUE, TRUE)
-ON CONFLICT (email) DO UPDATE
-SET
-    password = EXCLUDED.password,
-    role = EXCLUDED.role,
-    is_active = EXCLUDED.is_active,
-    is_verified = EXCLUDED.is_verified;
+    ('11111111-1111-4111-8111-111111111111', 'seed.admin@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE'),
+    ('22222222-2222-4222-8222-222222222222', 'dr.anura@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE'),
+    ('33333333-3333-4333-8333-333333333333', 'dr.nadee@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE'),
+    ('44444444-4444-4444-8444-444444444444', 'kamal.perera@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE'),
+    ('55555555-5555-4555-8555-555555555555', 'nimali.silva@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE'),
+    ('66666666-6666-4666-8666-666666666666', 'clinic.admin@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE'),
+    ('77777777-7777-4777-8777-777777777777', 'clinic.staff@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE')
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO auth.user_roles (user_id, role_id)
+SELECT u.user_id, r.role_id
+FROM auth.users u
+JOIN auth.roles r ON r.role_name = 'admin'
+WHERE u.email = 'admin@medstream.lk'
+ON CONFLICT (user_id, role_id) DO NOTHING;
+
+INSERT INTO auth.user_roles (user_id, role_id)
+SELECT u.user_id, r.role_id
+FROM auth.users u
+JOIN auth.roles r ON r.role_name = 'admin'
+WHERE u.email = 'seed.admin@medstream.lk'
+ON CONFLICT (user_id, role_id) DO NOTHING;
+
+INSERT INTO auth.user_roles (user_id, role_id)
+SELECT u.user_id, r.role_id
+FROM auth.users u
+JOIN auth.roles r ON r.role_name = 'doctor'
+WHERE u.email IN ('dr.anura@medstream.lk', 'dr.nadee@medstream.lk')
+ON CONFLICT (user_id, role_id) DO NOTHING;
+
+INSERT INTO auth.user_roles (user_id, role_id)
+SELECT u.user_id, r.role_id
+FROM auth.users u
+JOIN auth.roles r ON r.role_name = 'patient'
+WHERE u.email IN ('kamal.perera@medstream.lk', 'nimali.silva@medstream.lk')
+ON CONFLICT (user_id, role_id) DO NOTHING;
+
+INSERT INTO auth.user_roles (user_id, role_id)
+SELECT u.user_id, r.role_id
+FROM auth.users u
+JOIN auth.roles r ON r.role_name = 'clinic_admin'
+WHERE u.email = 'clinic.admin@medstream.lk'
+ON CONFLICT (user_id, role_id) DO NOTHING;
+
+INSERT INTO auth.user_roles (user_id, role_id)
+SELECT u.user_id, r.role_id
+FROM auth.users u
+JOIN auth.roles r ON r.role_name = 'clinic_staff'
+WHERE u.email = 'clinic.staff@medstream.lk'
+ON CONFLICT (user_id, role_id) DO NOTHING;
