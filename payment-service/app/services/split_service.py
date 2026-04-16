@@ -29,11 +29,11 @@ class SplitService:
         )
         db.add(PaymentSplit(
             payment_id=payment.payment_id,
-            split_type=SplitType.PLATFORM,
+            split_type=SplitType.platform,
             beneficiary_id=PLATFORM_BENEFICIARY_ID,
             percentage=settings.PLATFORM_COMMISSION_PCT,
             amount=platform_amount,
-            status=SplitStatus.PENDING
+            status=SplitStatus.pending
         ))
 
         # 2. Clinic Split
@@ -43,11 +43,11 @@ class SplitService:
             )
             db.add(PaymentSplit(
                 payment_id=payment.payment_id,
-                split_type=SplitType.CLINIC,
+                split_type=SplitType.clinic,
                 beneficiary_id=payment.clinic_id,
                 percentage=settings.CLINIC_SHARE_PCT,
                 amount=clinic_amount,
-                status=SplitStatus.PENDING
+                status=SplitStatus.pending
             ))
 
         # 3. Doctor Split
@@ -56,11 +56,11 @@ class SplitService:
         )
         db.add(PaymentSplit(
             payment_id=payment.payment_id,
-            split_type=SplitType.DOCTOR,
+            split_type=SplitType.doctor,
             beneficiary_id=payment.doctor_id,
             percentage=settings.DOCTOR_SHARE_PCT,
             amount=doctor_amount,
-            status=SplitStatus.PENDING
+            status=SplitStatus.pending
         ))
 
         await db.flush()
