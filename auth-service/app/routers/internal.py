@@ -1,4 +1,6 @@
 from typing import Optional
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
@@ -31,3 +33,11 @@ def create_clinic_admin_user(data: ClinicAdminOnboardingRequest, db: Session = D
         db=db,
     )
     return {"id": str(user["id"]), "email": user["email"]}
+
+
+@router.post("/clinic-admin/{user_id}/deactivate", status_code=status.HTTP_200_OK)
+def deactivate_clinic_admin_user(user_id: UUID, db: Session = Depends(get_db)):
+    from app.services import deactivate_user
+
+    deactivate_user(user_id, db)
+    return {"success": True}

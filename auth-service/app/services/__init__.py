@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import secrets
 from typing import cast
+from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -49,7 +50,7 @@ def register_user(data: RegisterRequest, db: Session) -> dict:
         email=data.email,
         phone=data.phone,
         password_hash=hash_password(data.password),
-        is_verified=False,
+        is_verified=True,
         account_status="ACTIVE",
     )
     db.add(user)
@@ -213,6 +214,18 @@ def verify_otp_code(email: str, otp_code: str, purpose: OtpPurpose, new_password
         setattr(user, "password_hash", hash_password(new_password))
     db.commit()
 
+    return {"success": True}
+
+
+def deactivate_user(user_id: UUID, db: Session) -> dict:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if cast(str, user.account_status) == "INACTIVE":
+        return {"success": True}
+
+    setattr(user, "account_status", "INACTIVE")
+    db.commit()
     return {"success": True}
 
 
