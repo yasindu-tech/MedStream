@@ -7,18 +7,22 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.middleware import require_roles
-from app.schemas import CancelAppointmentRequest
+from app.schemas import CancelAppointmentRequest, CancelAppointmentResponse
 from app.services.cancellation import cancel_appointment
 
 router = APIRouter(tags=["Cancel Appointment"])
 
-@router.post("/appointments/{appointment_id}/cancel", status_code=200)
+@router.post(
+    "/appointments/{appointment_id}/cancel",
+    status_code=200,
+    response_model=CancelAppointmentResponse,
+)
 def cancel_appointment_endpoint(
     request: CancelAppointmentRequest,
     appointment_id: UUID = Path(...),
-    user: dict = Depends(require_roles("patient", "doctor", "clinic_admin", "system_admin")),
+    user: dict = Depends(require_roles("patient", "doctor", "admin")),
     db: Session = Depends(get_db),
-) -> dict:
+) -> CancelAppointmentResponse:
     """
     Called by users to immediately drop a booked appointment returning the slot to public availability.
     """

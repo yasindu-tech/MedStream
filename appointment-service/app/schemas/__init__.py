@@ -163,6 +163,12 @@ class CancelAppointmentRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class CancelAppointmentResponse(BaseModel):
+    appointment_id: UUID
+    status: str
+    message: str
+
+
 # ---------------------------------------------------------------------------
 # AS-08: View Appointment History
 # ---------------------------------------------------------------------------
@@ -190,4 +196,3 @@ class AppointmentListPaginatedResponse(BaseModel):
     page: int
     size: int
     has_more: bool
-
