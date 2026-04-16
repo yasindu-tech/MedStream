@@ -6,11 +6,19 @@ from typing import Dict, List
 # Use a relative path to avoid hardcoded URLs
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
+ROLE_ALIASES = {
+    "clinic_admin": "staff",
+    "clinic_staff": "staff",
+}
+
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict:
     payload = decode_token(token)
     user_id: str = payload.get("sub")
     role: str = payload.get("role")
     email: str = payload.get("email")
+
+    if role in ROLE_ALIASES:
+        role = ROLE_ALIASES[role]
     
     if user_id is None:
         raise HTTPException(

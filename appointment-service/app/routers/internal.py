@@ -4,21 +4,23 @@ Provides booked slot data to doctor-service for slot computation.
 Not exposed through the nginx gateway.
 """
 from __future__ import annotations
-from datetime import date
+from datetime import date, datetime
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Appointment
-from app.schemas import BookedSlotResponse
+from app.schemas import AppointmentOutcomeResponse, BookedSlotResponse, InternalNoShowRequest, MarkArrivedRequest
+from app.services.outcome import mark_arrived, mark_no_show
+from app.services.policy import resolve_effective_policy
 
 router = APIRouter(tags=["internal"])
 
 # Statuses that occupy a slot (cancelled/completed do NOT block)
-OCCUPIED_STATUSES = {"scheduled", "confirmed", "pending_payment", "in_progress"}
+OCCUPIED_STATUSES = {"scheduled", "confirmed", "pending_payment", "in_progress", "arrived"}
 
 
 @router.get("/appointments/booked-slots", response_model=List[BookedSlotResponse])
@@ -92,3 +94,59 @@ def get_booked_slots_batch(
         )
         for appt in appointments
     ]
+
+
+@router.post("/appointments/{appointment_id}/mark-no-show", response_model=AppointmentOutcomeResponse)
+def internal_mark_no_show(
+    request: InternalNoShowRequest,
+    appointment_id: UUID = Path(...),
+    db: Session = Depends(get_db),
+) -> AppointmentOutcomeResponse:
+    appt = mark_no_show(
+        db,
+        appointment_id=appointment_id,
+        actor_role=request.mark_by,
+        actor_user_id="internal-system",
+        reason=request.reason,
+        observed_join_within_grace=request.observed_join_within_grace,
+    )
+    return AppointmentOutcomeResponse(
+        appointment_id=appt.appointment_id,
+        status=appt.status,
+        changed_at=(appt.no_show_at or datetime.now()).isoformat(),
+        message="Appointment marked as no-show",
+    )
+
+
+@router.post("/appointments/{appointment_id}/mark-arrived", response_model=AppointmentOutcomeResponse)
+def internal_mark_arrived(
+    request: MarkArrivedRequest,
+    appointment_id: UUID = Path(...),
+    db: Session = Depends(get_db),
+) -> AppointmentOutcomeResponse:
+    appt = mark_arrived(
+        db,
+        appointment_id=appointment_id,
+        actor_role="system",
+        actor_user_id="internal-system",
+        reason=request.reason,
+    )
+    return AppointmentOutcomeResponse(
+        appointment_id=appt.appointment_id,
+        status=appt.status,
+        changed_at=datetime.now().isoformat(),
+        message="Appointment marked as arrived",
+    )
+
+
+@router.get("/policies/effective")
+def internal_get_effective_policy(db: Session = Depends(get_db)) -> dict:
+    policy = resolve_effective_policy(db)
+    return {
+        "policy_id": policy.policy_id,
+        "cancellation_window_hours": policy.cancellation_window_hours,
+        "reschedule_window_hours": policy.reschedule_window_hours,
+        "advance_booking_days": policy.advance_booking_days,
+        "no_show_grace_period_minutes": policy.no_show_grace_period_minutes,
+        "max_reschedules": policy.max_reschedules,
+    }

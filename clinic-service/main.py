@@ -21,6 +21,9 @@ app.add_middleware(
 
 app.include_router(clinics_router)
 
+app.include_router(internal_router, prefix="/internal")
+
+
 
 @app.get("/health", tags=["health"])
 def health_check() -> dict[str, str]:

@@ -6,6 +6,11 @@ from app.config import settings
 
 bearer_scheme = HTTPBearer()
 
+ROLE_ALIASES = {
+    "clinic_admin": "staff",
+    "clinic_staff": "staff",
+}
+
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
@@ -16,6 +21,9 @@ def get_current_user(
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
         )
+        role = payload.get("role")
+        if role in ROLE_ALIASES:
+            payload["role"] = ROLE_ALIASES[role]
         return payload
     except JWTError:
         raise HTTPException(

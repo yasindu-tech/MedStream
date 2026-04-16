@@ -63,23 +63,38 @@ CREATE TABLE IF NOT EXISTS patientcare.appointments (
     parent_appointment_id uuid,
     patient_id uuid NOT NULL,
     doctor_id uuid,
+    doctor_name varchar(150),
     clinic_id uuid,
+    clinic_name varchar(150),
     appointment_type varchar(50) NOT NULL,
     appointment_date date NOT NULL,
     start_time time NOT NULL,
     end_time time NOT NULL,
     status varchar(30) NOT NULL DEFAULT 'scheduled',
     payment_status varchar(30) NOT NULL DEFAULT 'pending',
+    completed_at timestamptz,
+    completed_by varchar(100),
+    no_show_at timestamptz,
+    no_show_marked_by varchar(100),
     cancellation_reason text,
     cancelled_by varchar(30),
     rescheduled_from_date date,
     rescheduled_from_start_time time,
+    reschedule_count int NOT NULL DEFAULT 0,
+    policy_id uuid,
     idempotency_key varchar(255),
     created_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT fk_appointments_patient FOREIGN KEY (patient_id) REFERENCES patientcare.patients(patient_id) ON DELETE CASCADE,
     CONSTRAINT fk_appointments_parent FOREIGN KEY (parent_appointment_id) REFERENCES patientcare.appointments(appointment_id) ON DELETE SET NULL,
     CONSTRAINT uq_appointments_patient_idempotency UNIQUE (patient_id, idempotency_key)
 );
+
+ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS completed_at timestamptz;
+ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS completed_by varchar(100);
+ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS no_show_at timestamptz;
+ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS no_show_marked_by varchar(100);
+ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS reschedule_count int NOT NULL DEFAULT 0;
+ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS policy_id uuid;
 
 CREATE TABLE IF NOT EXISTS patientcare.appointment_status_history (
     history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -155,6 +170,49 @@ CREATE TABLE IF NOT EXISTS patientcare.follow_up_suggestions (
     CONSTRAINT fk_followup_original FOREIGN KEY (original_appointment_id) REFERENCES patientcare.appointments(appointment_id) ON DELETE CASCADE,
     CONSTRAINT fk_followup_patient FOREIGN KEY (patient_id) REFERENCES patientcare.patients(patient_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS patientcare.appointment_policies (
+    policy_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    cancellation_window_hours int NOT NULL,
+    reschedule_window_hours int NOT NULL,
+    advance_booking_days int NOT NULL,
+    no_show_grace_period_minutes int NOT NULL,
+    max_reschedules int NOT NULL,
+    is_active boolean NOT NULL DEFAULT true,
+    created_by varchar(100),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS patientcare.appointment_policy_history (
+    history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    old_policy_id uuid,
+    new_policy_id uuid NOT NULL,
+    changed_by varchar(100),
+    reason text,
+    changed_at timestamptz NOT NULL DEFAULT now()
+);
+
+INSERT INTO patientcare.appointment_policies (
+    policy_id,
+    cancellation_window_hours,
+    reschedule_window_hours,
+    advance_booking_days,
+    no_show_grace_period_minutes,
+    max_reschedules,
+    is_active,
+    created_by
+) VALUES (
+    '12121212-1212-4121-8121-121212121212',
+    12,
+    24,
+    14,
+    15,
+    2,
+    true,
+    'system'
+)
+ON CONFLICT (policy_id) DO NOTHING;
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA patientcare TO dev_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA patientcare GRANT ALL ON TABLES TO dev_user;

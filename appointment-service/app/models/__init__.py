@@ -1,7 +1,7 @@
 """SQLAlchemy models for the patientcare schema (appointment-service)."""
 import uuid
 from datetime import date, time
-from sqlalchemy import Column, String, Date, Time, DateTime, UniqueConstraint
+from sqlalchemy import Boolean, Column, Integer, String, Date, Time, DateTime, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.database import Base
@@ -34,17 +34,25 @@ class Appointment(Base):
     parent_appointment_id = Column(UUID(as_uuid=True), nullable=True)
     patient_id = Column(UUID(as_uuid=True), nullable=False)
     doctor_id = Column(UUID(as_uuid=True), nullable=True)
+    doctor_name = Column(String(150), nullable=True)
     clinic_id = Column(UUID(as_uuid=True), nullable=True)
+    clinic_name = Column(String(150), nullable=True)
     appointment_type = Column(String(50), nullable=False)
     appointment_date = Column(Date, nullable=False)
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
     status = Column(String(30), nullable=False, default="scheduled")
     payment_status = Column(String(30), nullable=False, default="pending")
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    completed_by = Column(String(100), nullable=True)
+    no_show_at = Column(DateTime(timezone=True), nullable=True)
+    no_show_marked_by = Column(String(100), nullable=True)
     cancellation_reason = Column(String, nullable=True)
     cancelled_by = Column(String(30), nullable=True)
     rescheduled_from_date = Column(Date, nullable=True)
     rescheduled_from_start_time = Column(Time, nullable=True)
+    reschedule_count = Column(Integer, nullable=False, default=0)
+    policy_id = Column(UUID(as_uuid=True), nullable=True)
     idempotency_key = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -75,6 +83,34 @@ class AppointmentStatusHistory(Base):
     appointment_id = Column(UUID(as_uuid=True), nullable=False)
     old_status = Column(String(30), nullable=True)
     new_status = Column(String(30), nullable=False)
+    changed_by = Column(String(100), nullable=True)
+    reason = Column(String, nullable=True)
+    changed_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AppointmentPolicy(Base):
+    __tablename__ = "appointment_policies"
+    __table_args__ = {"schema": "patientcare"}
+
+    policy_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    cancellation_window_hours = Column(Integer, nullable=False)
+    reschedule_window_hours = Column(Integer, nullable=False)
+    advance_booking_days = Column(Integer, nullable=False)
+    no_show_grace_period_minutes = Column(Integer, nullable=False)
+    max_reschedules = Column(Integer, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(100), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class AppointmentPolicyHistory(Base):
+    __tablename__ = "appointment_policy_history"
+    __table_args__ = {"schema": "patientcare"}
+
+    history_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    old_policy_id = Column(UUID(as_uuid=True), nullable=True)
+    new_policy_id = Column(UUID(as_uuid=True), nullable=False)
     changed_by = Column(String(100), nullable=True)
     reason = Column(String, nullable=True)
     changed_at = Column(DateTime(timezone=True), server_default=func.now())
