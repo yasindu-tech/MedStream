@@ -43,12 +43,16 @@ async def process_notification_queue():
                         html_content=item.message
                     )
                 elif item.channel == "sms":
-                    # Use phone from payload if available, else fallback
-                    phone = item.payload.get("phone", "94710000000") if hasattr(item, 'payload') else "94710000000"
-                    success = await SMSService.send_sms(
-                        recipient=phone,
-                        message=item.message
-                    )
+                    # Get phone from payload - no fallback
+                    phone = item.payload.get("phone") if hasattr(item, 'payload') else None
+                    if not phone:
+                        logger.error(f"Cannot send SMS for notification {item.notification_id}: Missing recipient phone number.")
+                        success = False
+                    else:
+                        success = await SMSService.send_sms(
+                            recipient=phone,
+                            message=item.message
+                        )
 
                 if success:
                     item.status = 'sent'
