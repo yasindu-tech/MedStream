@@ -1,11 +1,24 @@
 -- Create Schema
 CREATE SCHEMA IF NOT EXISTS communication;
 
--- Set Search Path
-SET search_path TO communication, public;
-
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Create dev_user if not exists
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'dev_user') THEN
+        CREATE ROLE dev_user LOGIN PASSWORD 'dev_password';
+    END IF;
+END
+$$;
+
+-- Grant permissions
+GRANT CONNECT ON DATABASE medstream_communication TO dev_user;
+GRANT ALL ON SCHEMA communication TO dev_user;
+
+-- Set Search Path
+SET search_path TO communication, public;
 
 -- NOTIFICATION_TEMPLATES Table
 CREATE TABLE IF NOT EXISTS notification_templates (
@@ -41,6 +54,12 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
     in_app_enabled BOOLEAN DEFAULT TRUE,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Grant privileges on all existing and future tables
+GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA communication TO dev_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA communication TO dev_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA communication GRANT ALL ON TABLES    TO dev_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA communication GRANT ALL ON SEQUENCES TO dev_user;
 
 -- Seed Default Templates (Initial Boot)
 INSERT INTO notification_templates (event_type, channel, subject, body, status) VALUES

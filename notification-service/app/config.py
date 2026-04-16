@@ -3,7 +3,9 @@ from typing import Optional
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:password@notification-db:5432/medstream_communication"
+    # Security
     SECRET_KEY: str = "your-super-secret-key-change-in-production"
+    JWT_SECRET: Optional[str] = None
     ALGORITHM: str = "HS256"
     
     SMTP_HOST: str = "smtp.mailtrap.io"
@@ -23,5 +25,6 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 settings = Settings()

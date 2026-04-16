@@ -42,7 +42,7 @@ class Payment(Base):
     currency = Column(String(3), default="USD")
     provider_name = Column(String(50), default="stripe")
     transaction_reference = Column(String(255))
-    status = Column(Enum(PaymentStatus, create_type=False, name="payment_status"), server_default="pending")
+    status = Column(Enum(PaymentStatus, create_type=True, name="payment_status", schema="finance"), server_default="pending")
     failure_reason = Column(Text, nullable=True)
     retry_count = Column(Integer, default=0)
     max_retries = Column(Integer, default=3)
@@ -57,11 +57,11 @@ class PaymentSplit(Base):
 
     split_id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     payment_id = Column(UUID(as_uuid=True), ForeignKey("finance.payments.payment_id"), nullable=False)
-    split_type = Column(Enum(SplitType, create_type=False, name="split_type"), nullable=False)
+    split_type = Column(Enum(SplitType, create_type=True, name="split_type", schema="finance"), nullable=False)
     beneficiary_id = Column(UUID(as_uuid=True), nullable=False)
     percentage = Column(Numeric(5, 2), nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)
-    status = Column(Enum(SplitStatus, create_type=False, name="split_status"), server_default="pending")
+    status = Column(Enum(SplitStatus, create_type=True, name="split_status", schema="finance"), server_default="pending")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Refund(Base):
@@ -72,7 +72,7 @@ class Refund(Base):
     payment_id = Column(UUID(as_uuid=True), ForeignKey("finance.payments.payment_id"), nullable=False)
     refund_amount = Column(Numeric(10, 2), nullable=False)
     reason = Column(Text)
-    status = Column(Enum(RefundStatus, create_type=False, name="refund_status"), server_default="pending")
+    status = Column(Enum(RefundStatus, create_type=True, name="refund_status", schema="finance"), server_default="pending")
     requested_by = Column(UUID(as_uuid=True))
     reviewed_by = Column(UUID(as_uuid=True))
     refunded_at = Column(DateTime(timezone=True))
