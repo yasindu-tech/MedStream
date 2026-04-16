@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Boolean, Text, DateTime, ForeignKey, Integer, JSON, text
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.database import Base
 
 class NotificationChannel(str, Enum):
@@ -47,7 +47,7 @@ class Notification(Base):
     channel = Column(String(50), nullable=False)
     title = Column(String(255))
     message = Column(Text, nullable=False)
-    payload = Column(JSON)
+    payload = Column(JSONB, nullable=True)
     status = Column(String(20), default='queued') # queued, sent, failed, read
     sent_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
