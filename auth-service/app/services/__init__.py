@@ -61,6 +61,30 @@ def register_user(data: RegisterRequest, db: Session) -> dict:
     return _serialize_user(user)
 
 
+def create_verified_user(email: str, password: str, role_name: str, db: Session, phone: str | None = None) -> dict:
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=409, detail="Email already registered")
+    if phone and db.query(User).filter(User.phone == phone).first():
+        raise HTTPException(status_code=400, detail="Phone already registered")
+
+    role = _get_role(db, role_name)
+    user = User(
+        email=email,
+        phone=phone,
+        password_hash=hash_password(password),
+        is_verified=True,
+        account_status="ACTIVE",
+    )
+    db.add(user)
+    db.flush()
+
+    user_role = UserRole(user_id=user.id, role_id=role.role_id)
+    db.add(user_role)
+    db.commit()
+    db.refresh(user)
+    return _serialize_user(user)
+
+
 def login_user(data: LoginRequest, db: Session) -> dict:
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not verify_password(data.password, user.password_hash):

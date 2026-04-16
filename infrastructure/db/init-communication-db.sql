@@ -68,5 +68,6 @@ INSERT INTO notification_templates (event_type, channel, subject, body, status) 
 ('appointment.cancelled', 'email', 'Appointment Cancelled', 'Dear {patient_name}, your appointment on {date} has been cancelled.', 'active'),
 ('account.verification', 'email', 'Verify Your Account', 'Your verification code is: {otp}', 'active'),
 ('account.password_reset', 'email', 'Reset Your Password', 'Click here to reset your password: {reset_link}', 'active'),
+('clinic.admin.onboarding', 'email', 'Welcome to MedStream', '<html><body><h1>Welcome to MedStream</h1><p>Your clinic <strong>{clinic_name}</strong> has been created.</p><p>Use the credentials below to sign in as a clinic administrator:</p><ul><li><strong>Email:</strong> {login_email}</li><li><strong>Temporary password:</strong> {temporary_password}</li></ul><p>Please <a href="{login_url}">sign in now</a> and change your password immediately.</p><p>If you did not request this, please contact support.</p></body></html>', 'active'),
 ('prescription.available', 'in_app', 'New Prescription', 'Dr. {doctor_name} has issued a new prescription for you.', 'active')
 ON CONFLICT (event_type) DO NOTHING;
