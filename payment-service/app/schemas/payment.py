@@ -62,7 +62,8 @@ class PaymentInitiateResponse(BaseModel):
     expires_at: Optional[datetime]
 
 class MockPayRequest(BaseModel):
-    action: str # "success" or "fail"
+    payment_id: UUID
+    action: str = "success" # "success" or "fail"
 
 class RefundCreate(BaseModel):
     reason: str

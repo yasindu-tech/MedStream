@@ -66,7 +66,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA communication GRANT ALL ON SEQUENCES TO dev_u
 INSERT INTO notification_templates (event_type, channel, subject, body, status) VALUES
 ('appointment.booked', 'email', 'Appointment Confirmed', 'Hello {patient_name}, your appointment with {doctor_name} is confirmed for {date} at {time}.', 'active'),
 ('appointment.cancelled', 'email', 'Appointment Cancelled', 'Dear {patient_name}, your appointment on {date} has been cancelled.', 'active'),
-('auth.verification', 'email', 'Verify Your Account', 'Your verification code is: {otp}', 'active'),
-('auth.password_reset', 'email', 'Reset Your Password', 'Click here to reset your password: {reset_link}', 'active'),
-('prescription.new', 'in_app', 'New Prescription', 'Dr. {doctor_name} has issued a new prescription for you.', 'active')
+('account.verification', 'email', 'Verify Your Account', 'Your verification code is: {otp}', 'active'),
+('account.password_reset', 'email', 'Reset Your Password', 'Click here to reset your password: {reset_link}', 'active'),
+('prescription.available', 'in_app', 'New Prescription', 'Dr. {doctor_name} has issued a new prescription for you.', 'active')
 ON CONFLICT (event_type) DO NOTHING;

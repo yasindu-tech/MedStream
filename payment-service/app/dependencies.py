@@ -33,7 +33,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         raise credentials_exception
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
-        user_id: str = payload.get("user_id")
+        user_id: str = payload.get("sub") or payload.get("user_id")
         role: str = payload.get("role")
         email: str = payload.get("email")
         if user_id is None:

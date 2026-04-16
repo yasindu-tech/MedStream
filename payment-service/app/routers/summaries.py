@@ -22,15 +22,15 @@ async def get_doctor_earnings(
     doctor_id = UUID(current_user["user_id"])
     
     stmt = select(PaymentSplit).where(
-        PaymentSplit.split_type == SplitType.DOCTOR,
+        PaymentSplit.split_type == SplitType.doctor,
         PaymentSplit.beneficiary_id == doctor_id
     )
     result = await db.execute(stmt)
     splits = result.scalars().all()
     
-    total_earned = sum((s.amount for s in splits if s.status == SplitStatus.SETTLED), Decimal("0"))
-    total_pending = sum((s.amount for s in splits if s.status == SplitStatus.PENDING), Decimal("0"))
-    total_reversed = sum((s.amount for s in splits if s.status == SplitStatus.REVERSED), Decimal("0"))
+    total_earned = sum((s.amount for s in splits if s.status == SplitStatus.settled), Decimal("0"))
+    total_pending = sum((s.amount for s in splits if s.status == SplitStatus.pending), Decimal("0"))
+    total_reversed = sum((s.amount for s in splits if s.status == SplitStatus.reversed), Decimal("0"))
     
     return {
         "total_earned": total_earned,
@@ -66,15 +66,15 @@ async def get_clinic_summary(
     result = await db.execute(query)
     payments = result.scalars().all()
     
-    total_revenue = sum((p.amount for p in payments if p.status == PaymentStatus.PAID), Decimal("0"))
-    total_refunded = sum((p.amount for p in payments if p.status == PaymentStatus.REFUNDED), Decimal("0"))
-    total_failed = sum((p.amount for p in payments if p.status == PaymentStatus.FAILED), Decimal("0"))
+    total_revenue = sum((p.amount for p in payments if p.status == PaymentStatus.paid), Decimal("0"))
+    total_refunded = sum((p.amount for p in payments if p.status == PaymentStatus.refunded), Decimal("0"))
+    total_failed = sum((p.amount for p in payments if p.status == PaymentStatus.failed), Decimal("0"))
     
     # Calculate clinic share from splits
     split_stmt = select(func.sum(PaymentSplit.amount)).where(
-        PaymentSplit.split_type == SplitType.CLINIC,
+        PaymentSplit.split_type == SplitType.clinic,
         PaymentSplit.beneficiary_id == target_clinic_id,
-        PaymentSplit.status != SplitStatus.REVERSED
+        PaymentSplit.status != SplitStatus.reversed
     )
     split_res = await db.execute(split_stmt)
     clinic_share_total = split_res.scalar() or Decimal("0")
@@ -99,7 +99,7 @@ async def get_platform_summary(
         select(
             func.sum(Payment.amount).label("total_rev"),
             func.count(Payment.payment_id).label("total_count")
-        ).where(Payment.status == PaymentStatus.PAID)
+        ).where(Payment.status == PaymentStatus.paid)
     )
     rev_stats = stats_res.first()
     
@@ -113,14 +113,14 @@ async def get_platform_summary(
     ref_stats = refund_res.first()
     
     # Failed & Pending
-    failed_res = await db.execute(select(func.sum(Payment.amount)).where(Payment.status == PaymentStatus.FAILED))
-    pending_res = await db.execute(select(func.sum(Payment.amount)).where(Payment.status == PaymentStatus.PENDING))
+    failed_res = await db.execute(select(func.sum(Payment.amount)).where(Payment.status == PaymentStatus.failed))
+    pending_res = await db.execute(select(func.sum(Payment.amount)).where(Payment.status == PaymentStatus.pending))
     
     # Platform Commission
     comm_res = await db.execute(
         select(func.sum(PaymentSplit.amount)).where(
-            PaymentSplit.split_type == SplitType.PLATFORM,
-            PaymentSplit.status != SplitStatus.REVERSED
+            PaymentSplit.split_type == SplitType.platform,
+            PaymentSplit.status != SplitStatus.reversed
         )
     )
     

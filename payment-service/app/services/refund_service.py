@@ -22,13 +22,13 @@ class RefundService:
         result = await db.execute(stmt)
         payment = result.scalar_one_or_none()
         
-        if not payment or payment.status != PaymentStatus.PAID:
+        if not payment or payment.status != PaymentStatus.paid:
             raise HTTPException(status_code=400, detail="Only paid payments can be refunded")
 
         # 2. Check existing active refunds
         refund_stmt = select(Refund).where(
             Refund.payment_id == payment_id,
-            Refund.status.in_([RefundStatus.PENDING, RefundStatus.APPROVED, RefundStatus.PROCESSED])
+            Refund.status.in_([RefundStatus.pending, RefundStatus.approved, RefundStatus.processed])
         )
         res = await db.execute(refund_stmt)
         if res.scalar_one_or_none():
@@ -39,7 +39,7 @@ class RefundService:
             payment_id=payment_id,
             refund_amount=payment.amount,
             reason=reason,
-            status=RefundStatus.PENDING,
+            status=RefundStatus.pending,
             requested_by=user_id
         )
         db.add(refund)
@@ -55,7 +55,7 @@ class RefundService:
         result = await db.execute(stmt)
         refund = result.scalar_one_or_none()
         
-        if not refund or refund.status != RefundStatus.PENDING:
+        if not refund or refund.status != RefundStatus.pending:
             raise HTTPException(status_code=400, detail="Refund request not found or not pending")
 
         # Get parent payment
@@ -64,17 +64,17 @@ class RefundService:
         payment = p_res.scalar_one()
 
         # 1. Update status
-        refund.status = RefundStatus.APPROVED
+        refund.status = RefundStatus.approved
         refund.reviewed_by = admin_id
         refund.refunded_at = datetime.utcnow()
         
-        payment.status = PaymentStatus.REFUNDED
+        payment.status = PaymentStatus.refunded
         
         # 2. Reverse splits
         await db.execute(
             update(PaymentSplit)
             .where(PaymentSplit.payment_id == payment.payment_id)
-            .values(status=SplitStatus.REVERSED)
+            .values(status=SplitStatus.reversed)
         )
         
         await db.commit()
@@ -101,10 +101,10 @@ class RefundService:
         result = await db.execute(stmt)
         refund = result.scalar_one_or_none()
         
-        if not refund or refund.status != RefundStatus.PENDING:
+        if not refund or refund.status != RefundStatus.pending:
             raise HTTPException(status_code=400, detail="Refund request not found or not pending")
 
-        refund.status = RefundStatus.REJECTED
+        refund.status = RefundStatus.rejected
         refund.reviewed_by = admin_id
         await db.commit()
         return refund

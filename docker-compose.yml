@@ -206,6 +206,12 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+asyncpg://dev_user:dev_password@finance_db:5432/medstream_finance
+      STRIPE_API_KEY: ${STRIPE_API_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      ENABLE_STRIPE_MOCK: ${ENABLE_STRIPE_MOCK:-true}
+      JWT_SECRET: ${SECRET_KEY:-your-super-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+      NOTIFICATION_SERVICE_URL: http://notification-service:8000
     ports:
       - "8005:8000"
     networks:
