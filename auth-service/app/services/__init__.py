@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import secrets
+from typing import cast
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -20,7 +21,7 @@ def _serialize_user(user: User) -> dict:
         "phone": user.phone,
         "is_verified": user.is_verified,
         "account_status": user.account_status,
-        "roles": [role.role_name for role in user.roles],
+        "roles": [cast(str, role.role_name) for role in user.roles],
     }
 
 
@@ -33,7 +34,7 @@ def _get_role(db: Session, role_name: str) -> Role:
 
 def _primary_role(user: User) -> str:
     if user.roles:
-        return user.roles[0].role_name
+        return cast(str, user.roles[0].role_name)
     return "patient"
 
 
@@ -87,14 +88,14 @@ def create_verified_user(email: str, password: str, role_name: str, db: Session,
 
 def login_user(data: LoginRequest, db: Session) -> dict:
     user = db.query(User).filter(User.email == data.email).first()
-    if not user or not verify_password(data.password, user.password_hash):
+    if not user or not verify_password(data.password, cast(str, user.password_hash)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    if not user.is_verified:
+    if not cast(bool, user.is_verified):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account not verified")
-    if user.account_status != "ACTIVE":
+    if cast(str, user.account_status) != "ACTIVE":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
 
-    role_names = [role.role_name for role in user.roles]
+    role_names = [cast(str, role.role_name) for role in user.roles]
     primary_role = _primary_role(user)
     access_token = create_access_token(str(user.id), primary_role, role_names)
     refresh_token = create_refresh_token(str(user.id))
@@ -118,40 +119,27 @@ def login_user(data: LoginRequest, db: Session) -> dict:
 def refresh_tokens(refresh_token: str, db: Session) -> dict:
     payload = decode_token(refresh_token)
     if payload.get("type") != "refresh":
-<<<<<<< HEAD
-        raise HTTPException(status_code=401, detail="Invalid token type")
-    user = db.query(User).filter(User.user_id == payload["sub"]).first()
-    if not user or user.account_status != "ACTIVE":
-        raise HTTPException(status_code=401, detail="User not found or inactive")
-
-    role_name = _resolve_primary_role(db, str(user.user_id))
-    return {
-        "access_token":  create_access_token(str(user.user_id), role_name),
-        "refresh_token": create_refresh_token(str(user.user_id)),
-        "token_type":    "bearer"
-    }
-=======
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
 
     session = db.query(AuthSession).filter(AuthSession.refresh_token == refresh_token).first()
-    if not session or session.is_revoked:
+    if not session or cast(bool, session.is_revoked):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or revoked session")
-    if session.expires_at < datetime.utcnow():
-        session.is_revoked = True
+    if cast(datetime, session.expires_at) < datetime.utcnow():
+        setattr(session, "is_revoked", True)
         db.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
 
     user = db.query(User).filter(User.id == payload["sub"]).first()
-    if not user or user.account_status != "ACTIVE":
+    if not user or cast(str, user.account_status) != "ACTIVE":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
 
-    role_names = [role.role_name for role in user.roles]
+    role_names = [cast(str, role.role_name) for role in user.roles]
     primary_role = _primary_role(user)
     access_token = create_access_token(str(user.id), primary_role, role_names)
     new_refresh_token = create_refresh_token(str(user.id))
 
-    session.refresh_token = new_refresh_token
-    session.expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    setattr(session, "refresh_token", new_refresh_token)
+    setattr(session, "expires_at", datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS))
     db.commit()
 
     return {
@@ -165,7 +153,7 @@ def logout_user(refresh_token: str, db: Session) -> None:
     session = db.query(AuthSession).filter(AuthSession.refresh_token == refresh_token).first()
     if not session:
         return
-    session.is_revoked = True
+    setattr(session, "is_revoked", True)
     db.commit()
 
 
@@ -215,19 +203,18 @@ def verify_otp_code(email: str, otp_code: str, purpose: OtpPurpose, new_password
     if not otp:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired OTP")
 
-    otp.is_used = True
+    setattr(otp, "is_used", True)
 
     if purpose == OtpPurpose.REGISTER:
-        user.is_verified = True
+        setattr(user, "is_verified", True)
     elif purpose == OtpPurpose.RESET_PASSWORD:
         if not new_password:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New password is required for password reset")
-        user.password_hash = hash_password(new_password)
+        setattr(user, "password_hash", hash_password(new_password))
     db.commit()
 
     return {"success": True}
 
 
 def get_all_roles(db: Session) -> list[str]:
-    return [role.role_name for role in db.query(Role).order_by(Role.role_name).all()]
->>>>>>> ea0b18601531a99916cf505c4f622e3b1e6e888b
+    return [cast(str, role.role_name) for role in db.query(Role).order_by(Role.role_name).all()]

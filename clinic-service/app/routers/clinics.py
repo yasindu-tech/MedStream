@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Sequence
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
@@ -16,9 +16,9 @@ def create_clinic_endpoint(
     db: Session = Depends(get_db),
 ) -> ClinicResponse:
     clinic = create_clinic(db=db, payload=payload)
-    return clinic
+    return ClinicResponse.model_validate(clinic)
 
 
 @router.get("/", response_model=List[ClinicResponse])
-def get_clinics_endpoint(db: Session = Depends(get_db)) -> List[ClinicResponse]:
-    return list_clinics(db=db)
+def get_clinics_endpoint(db: Session = Depends(get_db)) -> Sequence[ClinicResponse]:
+    return [ClinicResponse.model_validate(clinic) for clinic in list_clinics(db=db)]
