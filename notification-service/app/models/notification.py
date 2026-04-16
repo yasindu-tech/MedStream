@@ -1,8 +1,20 @@
+from enum import Enum
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Boolean, Text, DateTime, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
+
+class NotificationChannel(str, Enum):
+    EMAIL = "email"
+    SMS = "sms"
+    IN_APP = "in_app"
+
+class NotificationStatus(str, Enum):
+    QUEUED = "queued"
+    SENT = "sent"
+    FAILED = "failed"
+    READ = "read"
 
 class NotificationTemplate(Base):
     __tablename__ = "notification_templates"
@@ -21,6 +33,11 @@ class Notification(Base):
     __table_args__ = {"schema": "communication"}
 
     notification_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    @property
+    def id(self):
+        return self.notification_id
+
     user_id = Column(UUID(as_uuid=True), nullable=False)
     template_id = Column(UUID(as_uuid=True), ForeignKey("communication.notification_templates.template_id"))
     event_type = Column(String(100))
@@ -30,6 +47,10 @@ class Notification(Base):
     status = Column(String(20), default='queued') # queued, sent, failed, read
     sent_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+# Aliases for backward compatibility or different architectural views
+NotificationQueue = Notification
+NotificationHistory = Notification
 
 class NotificationPreference(Base):
     __tablename__ = "notification_preferences"
@@ -41,3 +62,6 @@ class NotificationPreference(Base):
     sms_enabled = Column(Boolean, default=True)
     in_app_enabled = Column(Boolean, default=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# Alias for what __init__.py expects
+UserNotificationPreference = NotificationPreference

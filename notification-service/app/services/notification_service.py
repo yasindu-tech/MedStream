@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, timedelta
-from datetime import datetime
+from sqlalchemy import select, update
+from datetime import datetime, timedelta
 from uuid import UUID
 import logging
 from typing import Optional, Dict, Any, List
@@ -14,7 +14,7 @@ from app.services.email_service import EmailService
 from app.services.sms_service import SMSService
 from app.services.template_service import TemplateService
 from app.services.websocket_service import manager
-from app.database import SessionLocal
+from app.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ async def process_notification_queue():
     Background worker that processes the pending 'notifications' table.
     Checks for items where status='queued' and scheduled time has arrived.
     """
-    async with SessionLocal() as db:
+    async with AsyncSessionLocal() as db:
         stmt = (
             select(Notification)
             .where(Notification.status.in_(['queued', 'failed']))
@@ -119,5 +119,5 @@ class NotificationService:
 
 async def seed_default_templates():
     # Python seeding is now a fallback; SQL handles the initial boot.
-    async with SessionLocal() as db:
+    async with AsyncSessionLocal() as db:
         pass
