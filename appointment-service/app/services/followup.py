@@ -186,12 +186,20 @@ def confirm_followup(
 def get_pending_followups(
     db: Session,
     *,
-    patient_user_id: str,
+    patient_user_id: str | UUID,
 ) -> List[FollowUpSuggestionResponse]:
     """
     Fetch all 'pending' follow-up suggestions for the logged-in patient.
     """
-    patient = db.query(Patient).filter(Patient.user_id == UUID(patient_user_id)).first()
+    try:
+        patient_user_uuid = patient_user_id if isinstance(patient_user_id, UUID) else UUID(patient_user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid patient_user_id.",
+        )
+
+    patient = db.query(Patient).filter(Patient.user_id == patient_user_uuid).first()
     if not patient:
         return []
 
@@ -206,34 +214,34 @@ def get_pending_followups(
     # Simple cache to avoid redundant calls for same doctor
     doctor_names = {}
 
-    for s in suggestions:
-        doctor_id_str = str(s.doctor_id)
-        if doctor_id_str not in doctor_names:
-            url = f"{settings.DOCTOR_SERVICE_URL}/internal/doctors/{doctor_id_str}/profile"
-            try:
-                with httpx.Client(timeout=5.0) as client:
+    with httpx.Client(timeout=5.0) as client:
+        for s in suggestions:
+            doctor_id_str = str(s.doctor_id)
+            if doctor_id_str not in doctor_names:
+                url = f"{settings.DOCTOR_SERVICE_URL}/internal/doctors/{doctor_id_str}/profile"
+                try:
                     resp = client.get(url)
                     if resp.status_code == 200:
                         doctor_names[doctor_id_str] = resp.json().get("full_name", "Unknown Doctor")
                     else:
                         doctor_names[doctor_id_str] = f"Doctor (ID: {doctor_id_str})"
-            except Exception:
-                doctor_names[doctor_id_str] = f"Doctor (ID: {doctor_id_str})"
+                except Exception:
+                    doctor_names[doctor_id_str] = f"Doctor (ID: {doctor_id_str})"
 
-        responses.append(FollowUpSuggestionResponse(
-            suggestion_id=s.suggestion_id,
-            original_appointment_id=s.original_appointment_id,
-            doctor_id=s.doctor_id,
-            doctor_name=doctor_names[doctor_id_str],
-            patient_id=s.patient_id,
-            clinic_id=s.clinic_id,
-            suggested_date=s.suggested_date,
-            suggested_start_time=s.suggested_start_time.strftime("%H:%M"),
-            suggested_end_time=s.suggested_end_time.strftime("%H:%M"),
-            consultation_type=s.consultation_type,
-            notes=s.notes,
-            status=s.status,
-            message="",
-        ))
+            responses.append(FollowUpSuggestionResponse(
+                suggestion_id=s.suggestion_id,
+                original_appointment_id=s.original_appointment_id,
+                doctor_id=s.doctor_id,
+                doctor_name=doctor_names[doctor_id_str],
+                patient_id=s.patient_id,
+                clinic_id=s.clinic_id,
+                suggested_date=s.suggested_date,
+                suggested_start_time=s.suggested_start_time.strftime("%H:%M"),
+                suggested_end_time=s.suggested_end_time.strftime("%H:%M"),
+                consultation_type=s.consultation_type,
+                notes=s.notes,
+                status=s.status,
+                message="",
+            ))
         
     return responses
