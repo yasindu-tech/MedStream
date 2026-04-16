@@ -144,3 +144,13 @@ class FollowUpSuggestionResponse(BaseModel):
     status: str
     message: str
 
+
+# ---------------------------------------------------------------------------
+# AS-05: Reschedule Appointment
+# ---------------------------------------------------------------------------
+
+class RescheduleAppointmentRequest(BaseModel):
+    new_date: date
+    new_start_time: str  # "HH:MM"
+    new_consultation_type: str
+

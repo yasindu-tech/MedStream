@@ -65,3 +65,16 @@ class FollowUpSuggestion(Base):
     notes = Column(String, nullable=True)
     status = Column(String(30), nullable=False, default="pending")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AppointmentStatusHistory(Base):
+    __tablename__ = "appointment_status_history"
+    __table_args__ = {"schema": "patientcare"}
+
+    history_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    appointment_id = Column(UUID(as_uuid=True), nullable=False)
+    old_status = Column(String(30), nullable=True)
+    new_status = Column(String(30), nullable=False)
+    changed_by = Column(String(100), nullable=True)
+    reason = Column(String, nullable=True)
+    changed_at = Column(DateTime(timezone=True), server_default=func.now())
