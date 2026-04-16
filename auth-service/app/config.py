@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     CORS_ALLOWED_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
-    CORS_ALLOW_CREDENTIALS: str = "true"
+    CORS_ALLOW_CREDENTIALS: bool = True
 
     class Config:
         env_file = ".env"
@@ -22,11 +22,6 @@ class Settings(BaseSettings):
 
     @property
     def cors_allow_credentials(self) -> bool:
-        return self.CORS_ALLOW_CREDENTIALS.strip().lower() in {
-            "1",
-            "true",
-            "yes",
-            "on",
-        }
+        return self.CORS_ALLOW_CREDENTIALS
 
 settings = Settings()
