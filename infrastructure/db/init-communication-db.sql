@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     channel VARCHAR(50) NOT NULL,
     title VARCHAR(255),
     message TEXT NOT NULL,
+    payload JSONB,
     status VARCHAR(20) DEFAULT 'queued', -- queued, sent, failed, read
     sent_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

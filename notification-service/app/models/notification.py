@@ -1,7 +1,7 @@
 from enum import Enum
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, Text, DateTime, ForeignKey, Integer
+from sqlalchemy import Column, String, Boolean, Text, DateTime, ForeignKey, Integer, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 
@@ -44,6 +44,7 @@ class Notification(Base):
     channel = Column(String(50), nullable=False)
     title = Column(String(255))
     message = Column(Text, nullable=False)
+    payload = Column(JSON)
     status = Column(String(20), default='queued') # queued, sent, failed, read
     sent_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -96,6 +96,7 @@ class NotificationService:
             channel=template.channel,
             title=title,
             message=message,
+            payload=event_data.payload,
             status='queued'
         )
         
