@@ -6,6 +6,7 @@ from app.routers.search import router as search_router
 from app.routers.booking import router as booking_router
 from app.routers.followup import router as followup_router
 from app.routers.reschedule import router as reschedule_router
+from app.routers.cancellation import router as cancellation_router
 
 app = FastAPI(title="appointment-service", version="0.1.0")
 
@@ -32,6 +33,9 @@ app.include_router(followup_router)
 
 # Public: JWT required, exposed via nginx at /appointments/appointments/{id}/reschedule
 app.include_router(reschedule_router)
+
+# Public: JWT required, exposed via nginx at /appointments/appointments/{id}/cancel
+app.include_router(cancellation_router)
 
 
 @app.get("/health", tags=["health"])
