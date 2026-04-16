@@ -43,15 +43,24 @@ def cancel_appointment(
 
     role = user.get("role")
     if not role:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing role claim in token.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token structure: missing role claim.",
+        )
 
     user_sub = user.get("sub")
     if not user_sub:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing subject claim in token.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token structure: missing subject claim.",
+        )
     try:
-        user_id = UUID(str(user_sub))
+        user_id = UUID(user_sub)
     except (TypeError, ValueError):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid subject claim in token.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token structure: subject claim is not a valid UUID.",
+        )
     
     # 2. Branch workflows by Role
     if role == "patient":
@@ -59,7 +68,7 @@ def cancel_appointment(
     elif role == "doctor":
         _handle_doctor_cancel(db, appt, user_id, request.reason)
     elif role == "admin":
-        _handle_admin_cancel(appt, user_id, request.reason)
+        _handle_admin_cancel(appt)
     else:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unrecognized role for cancellation action.")
 
@@ -118,6 +127,7 @@ def _handle_doctor_cancel(db: Session, appt: Appointment, user_id: UUID, reason:
     if UUID(doctor_info["doctor_id"]) != appt.doctor_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are restricted to cancelling your own appointments exclusively.")
 
-def _handle_admin_cancel(appt: Appointment, user_id: UUID, reason: Optional[str]):
+def _handle_admin_cancel(appt: Appointment):
+    """Admin cancellations are unrestricted."""
     # Absolute override capability. Admins can cancel universally.
     pass
