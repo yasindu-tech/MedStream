@@ -7,10 +7,11 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.models import Appointment, AppointmentStatusHistory, Patient
 from app.schemas import CancelAppointmentRequest
+from app.services.clinic_scope import resolve_staff_clinic_id
 from app.services.followup import _get_doctor_info_by_user
+from app.services.policy import resolve_policy_for_appointment
 
 
 def cancel_appointment(
@@ -49,10 +50,10 @@ def cancel_appointment(
         _handle_patient_cancel(db, appt, user_id, request.reason)
     elif role == "doctor":
         _handle_doctor_cancel(db, appt, user_id, request.reason)
-    elif role == "clinic_admin":
-        _handle_clinic_admin_cancel(appt, user_id, request.reason)
-    elif role == "system_admin":
-        _handle_system_admin_cancel(appt, user_id, request.reason)
+    elif role == "staff":
+        _handle_staff_cancel(appt, user_id, request.reason)
+    elif role == "admin":
+        _handle_admin_cancel(appt, user_id, request.reason)
     else:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unrecognized role for cancellation action.")
 
@@ -90,13 +91,14 @@ def _handle_patient_cancel(db: Session, appt: Appointment, user_id: str, reason:
     if not patient or appt.patient_id != patient.patient_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only cancel your own appointments.")
 
-    # Apply configuration boundaries
+    # Apply dynamic policy boundaries
+    policy = resolve_policy_for_appointment(db, appt.policy_id)
     appt_dt = datetime.combine(appt.appointment_date, appt.start_time)
     now_dt = datetime.now() 
-    if (appt_dt - now_dt) < timedelta(hours=settings.CANCELLATION_WINDOW_HOURS):
+    if (appt_dt - now_dt) < timedelta(hours=policy.cancellation_window_hours):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Patients can only cancel directly up to {settings.CANCELLATION_WINDOW_HOURS} hours before the appointment."
+            detail=f"Patients can only cancel directly up to {policy.cancellation_window_hours} hours before the appointment."
         )
 
 def _handle_doctor_cancel(db: Session, appt: Appointment, user_id: str, reason: Optional[str]):
@@ -111,10 +113,24 @@ def _handle_doctor_cancel(db: Session, appt: Appointment, user_id: str, reason: 
     if UUID(doctor_info["doctor_id"]) != appt.doctor_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are restricted to cancelling your own appointments exclusively.")
 
-def _handle_clinic_admin_cancel(appt: Appointment, user_id: str, reason: Optional[str]):
-    # TODO: Validate clinic scope authorization using clinic-service logic 
-    pass
+def _handle_staff_cancel(appt: Appointment, user_id: str, reason: Optional[str]):
+    if not reason or len(reason.strip()) < 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Staff are required to provide a cancellation reason.",
+        )
 
-def _handle_system_admin_cancel(appt: Appointment, user_id: str, reason: Optional[str]):
-    # Absolute override capability. System Admins can cancel universally.
-    pass
+    staff_clinic_id = resolve_staff_clinic_id(user_id)
+    if appt.clinic_id != staff_clinic_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Staff can only cancel appointments in their own clinic.",
+        )
+
+
+def _handle_admin_cancel(appt: Appointment, user_id: str, reason: Optional[str]):
+    if not reason or len(reason.strip()) < 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Admin cancellation requires a reason.",
+        )

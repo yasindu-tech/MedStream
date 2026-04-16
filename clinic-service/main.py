@@ -3,6 +3,8 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers.internal import router as internal_router
+
 cors_origins = [
     origin.strip()
     for origin in os.getenv(
@@ -27,6 +29,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(internal_router, prefix="/internal")
 
 
 

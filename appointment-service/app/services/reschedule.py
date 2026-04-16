@@ -8,10 +8,10 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
-from app.config import settings
 from app.models import Appointment, AppointmentStatusHistory, Patient
 from app.schemas import RescheduleAppointmentRequest, BookAppointmentResponse, BookAppointmentRequest
 from app.services.booking import _validate_slot_with_doctor_service, OCCUPIED_STATUSES
+from app.services.policy import resolve_policy_for_appointment
 
 def reschedule_appointment(
     db: Session,
@@ -69,6 +69,13 @@ def reschedule_appointment(
             detail=f"Cannot reschedule an appointment in '{appt.status}' state."
         )
 
+    policy = resolve_policy_for_appointment(db, appt.policy_id)
+    if appt.reschedule_count >= policy.max_reschedules:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Maximum reschedule limit reached ({policy.max_reschedules}).",
+        )
+
     # ------------------------------------------------------------------
     # Step 3: Cutoff Math Validation
     # ------------------------------------------------------------------
@@ -76,10 +83,10 @@ def reschedule_appointment(
     appt_dt = datetime.combine(appt.appointment_date, appt.start_time)
     now_dt = datetime.now()  # Assuming server local timezone is correctly handled or UTC. 
 
-    if (appt_dt - now_dt) < timedelta(hours=settings.RESCHEDULE_WINDOW_HOURS):
+    if (appt_dt - now_dt) < timedelta(hours=policy.reschedule_window_hours):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Appointments can only be rescheduled at least {settings.RESCHEDULE_WINDOW_HOURS} hours in advance."
+            detail=f"Appointments can only be rescheduled at least {policy.reschedule_window_hours} hours in advance."
         )
 
     # ------------------------------------------------------------------
@@ -188,6 +195,7 @@ def reschedule_appointment(
     
     appt.status = new_status
     appt.payment_status = new_payment_status
+    appt.reschedule_count = appt.reschedule_count + 1
     
     # Execute the transaction securely
     db.commit()

@@ -1,6 +1,6 @@
 """Core booking logic — slot validation, collision check, idempotency."""
 from __future__ import annotations
-from datetime import date, time, datetime
+from datetime import date, time, datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -11,10 +11,11 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import Appointment, Patient
 from app.schemas import BookAppointmentRequest, BookAppointmentResponse
+from app.services.policy import resolve_effective_policy
 
 
 # Statuses that occupy a slot (same as in internal.py)
-OCCUPIED_STATUSES = {"scheduled", "confirmed", "pending_payment", "in_progress"}
+OCCUPIED_STATUSES = {"scheduled", "confirmed", "pending_payment", "in_progress", "arrived"}
 
 
 def book_appointment(
@@ -83,7 +84,18 @@ def book_appointment(
             )
 
     # ------------------------------------------------------------------
-    # Step 2: Validate slot via doctor-service
+    # Step 2: Validate policy-based advance booking window
+    # ------------------------------------------------------------------
+    effective_policy = resolve_effective_policy(db)
+    max_date = date.today() + timedelta(days=effective_policy.advance_booking_days)
+    if request.date < date.today() or request.date > max_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Appointments can only be booked up to {effective_policy.advance_booking_days} days in advance.",
+        )
+
+    # ------------------------------------------------------------------
+    # Step 3: Validate slot via doctor-service
     # ------------------------------------------------------------------
     slot_info = _validate_slot_with_doctor_service(request)
 
@@ -97,7 +109,7 @@ def book_appointment(
     consultation_fee: Optional[float] = slot_info.get("consultation_fee")
 
     # ------------------------------------------------------------------
-    # Step 3: Double-book collision check (time-range overlap)
+    # Step 4: Double-book collision check (time-range overlap)
     # ------------------------------------------------------------------
     start_time_obj = _parse_time(request.start_time)
     end_time_obj = _parse_time(end_time_str)
@@ -122,7 +134,7 @@ def book_appointment(
         )
 
     # ------------------------------------------------------------------
-    # Step 4: Ensure patient record exists (auto-create on first booking)
+    # Step 5: Ensure patient record exists (auto-create on first booking)
     # ------------------------------------------------------------------
     if not existing_patient:
         existing_patient = Patient(
@@ -133,7 +145,7 @@ def book_appointment(
         db.flush()  # get patient_id without committing
 
     # ------------------------------------------------------------------
-    # Step 5: Create appointment
+    # Step 6: Create appointment
     # ------------------------------------------------------------------
     # Determine initial statuses based on consultation fee
     if consultation_fee and consultation_fee > 0:
@@ -157,6 +169,7 @@ def book_appointment(
         end_time=end_time_obj,
         status=appt_status,
         payment_status=payment_status,
+        policy_id=UUID(effective_policy.policy_id) if effective_policy.policy_id else None,
         idempotency_key=idempotency_key,
     )
 

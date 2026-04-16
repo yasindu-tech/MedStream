@@ -16,7 +16,7 @@ router = APIRouter(tags=["Cancel Appointment"])
 def cancel_appointment_endpoint(
     request: CancelAppointmentRequest,
     appointment_id: UUID = Path(...),
-    user: dict = Depends(require_roles("patient", "doctor", "clinic_admin", "system_admin")),
+    user: dict = Depends(require_roles("patient", "doctor", "staff", "admin")),
     db: Session = Depends(get_db),
 ) -> dict:
     """
