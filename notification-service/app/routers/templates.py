@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from app.database import get_db
-from app.schemas.notification import TemplateRead, TemplateCreate, TemplateUpdate
-from app.models.notification import NotificationTemplate
+from app.schemas.notification import TemplateCreate, TemplateUpdate, TemplateRead
+from app.models.notification import NotificationTemplate, NotificationTemplateVersion
 from app.middleware import require_roles
 from uuid import UUID
 from typing import List, Dict
@@ -36,26 +36,40 @@ async def create_template(
     await db.refresh(db_template)
     return db_template
 
-@router.patch("/templates/{template_id}", response_model=TemplateRead)
+@router.put("/templates/{template_id}", response_model=TemplateRead)
 async def update_template(
-    template_id: UUID,
-    template_data: TemplateUpdate,
+    template_id: UUID, 
+    template_data: TemplateUpdate, 
     db: AsyncSession = Depends(get_db),
-    admin: Dict = Depends(require_roles("admin"))
+    current_user: Dict = Depends(require_roles("admin"))
 ):
     stmt = select(NotificationTemplate).where(NotificationTemplate.id == template_id)
     result = await db.execute(stmt)
-    db_template = result.scalar_one_or_none()
+    template = result.scalar_one_or_none()
     
-    if not db_template:
+    if not template:
         raise HTTPException(status_code=404, detail="Template not found")
-    
+
+    # 1. Create a snapshot of the CURRENT version before updating
+    version_snapshot = NotificationTemplateVersion(
+        template_id=template.id,
+        event_type=template.event_type,
+        title_template=template.title_template,
+        body_template=template.body_template,
+        version=template.version,
+        changed_by=current_user.get("email")
+    )
+    db.add(version_snapshot)
+
+    # 2. Apply new changes and increment version
     for key, value in template_data.model_dump(exclude_unset=True).items():
-        setattr(db_template, key, value)
-        
+        setattr(template, key, value)
+    
+    template.version += 1
+    
     await db.commit()
-    await db.refresh(db_template)
-    return db_template
+    await db.refresh(template)
+    return template
 
 @router.delete("/templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_template(

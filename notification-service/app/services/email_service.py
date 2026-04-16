@@ -2,52 +2,44 @@ import smtplib
 import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from typing import Optional
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 class EmailService:
     @staticmethod
-    async def send_email(to_email: str, subject: str, body: str) -> bool:
+    def send_email(to_email: str, subject: str, html_content: str, text_content: Optional[str] = None):
         """
-        Send an email using SMTP.
-        If ENVIRONMENT=development, logs the email instead of sending.
+        Sends an email using the configured SMTP settings.
+        Supports both HTML and Plain Text fallback.
         """
-        if settings.ENVIRONMENT == "development":
-            logger.info("--- MOCK EMAIL START ---")
-            logger.info(f"To: {to_email}")
-            logger.info(f"Subject: {subject}")
-            logger.info(f"Body: {body}")
-            logger.info("--- MOCK EMAIL END ---")
+        if not settings.SMTP_HOST or not settings.SMTP_USER:
+            logger.info(f"[MOCK EMAIL] To: {to_email} | Subject: {subject} | Content: [REDACTED FOR SECURITY]")
             return True
 
-        try:
-            msg = MIMEMultipart()
-            msg['From'] = settings.EMAIL_FROM
-            msg['To'] = to_email
-            msg['Subject'] = subject
-            msg.attach(MIMEText(body, 'plain'))
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = settings.EMAIL_FROM
+        msg["To"] = to_email
 
+        # Add plain text fallback if provided
+        if text_content:
+            msg.attach(MIMEText(text_content, "plain"))
+        else:
+            # Basic strip of HTML tags for plain text fallback
+            msg.attach(MIMEText("Please view this email in an HTML-compatible client.", "plain"))
+
+        msg.attach(MIMEText(html_content, "html"))
+
+        try:
             with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-                if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                if settings.SMTP_PASSWORD:
                     server.starttls()
                     server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
                 server.send_message(msg)
-            
-            logger.info(f"Email sent successfully to {to_email}")
-            return True
+                logger.info(f"Email sent successfully to {to_email}")
+                return True
         except Exception as e:
-            logger.error(f"Failed to send email to {to_email}: {e}")
+            logger.error(f"Failed to send email to {to_email}: {str(e)}")
             return False
-        
-    @staticmethod
-    async def get_user_email(user_id: str) -> str:
-        """
-        Mock function to get user email. 
-        In a real scenario, this would call auth-service or patient-service.
-        For now, we'll assume a pattern or return a placeholder if not in payload.
-        """
-        # Note: The prompt doesn't specify how to get the email if not in payload.
-        # Calling auth-service or assuming it's passed in payload.
-        return f"user_{user_id}@example.com"
-        

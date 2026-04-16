@@ -3,11 +3,12 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 from app.routers import events, inbox, templates, preferences
-from app.services.notification_service import seed_default_templates
+from app.services.notification_service import seed_default_templates, process_notification_queue
 from app.services.websocket_service import manager
 from app.middleware import get_current_user
 from app.config import settings
 import logging
+import asyncio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +24,18 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     
     await seed_default_templates()
+    
+    # Start background worker
+    async def worker_loop():
+        while True:
+            try:
+                await process_notification_queue()
+            except Exception as e:
+                logger.error(f"Worker loop error: {e}")
+            await asyncio.sleep(30)  # Check queue every 30 seconds
+
+    asyncio.create_task(worker_loop())
+    
     logger.info(f"{settings.SERVICE_NAME} started on port {settings.SERVICE_PORT}")
     yield
     # Shutdown
