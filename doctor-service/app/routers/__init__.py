@@ -12,9 +12,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas import DoctorSearchResponse, DoctorProfileResponse
+from app.models import Doctor
+from app.schemas import DoctorSearchResponse, DoctorProfileResponse, SlotValidationResponse, DoctorIdResponse
 from app.services.doctor_search import search_doctors
 from app.services.doctor_profile import get_doctor_profile
+from app.services.slot_validator import validate_slot
 
 router = APIRouter(tags=["internal"])
 
@@ -76,3 +78,57 @@ def internal_doctor_profile(
             detail="Doctor not found, inactive, or unverified",
         )
     return profile
+
+
+# ---------------------------------------------------------------------------
+# AS-03: Slot validation
+# ---------------------------------------------------------------------------
+
+@router.get("/doctors/{doctor_id}/validate-slot", response_model=SlotValidationResponse)
+def internal_validate_slot(
+    doctor_id: UUID,
+    clinic_id: UUID = Query(..., description="Clinic UUID"),
+    date: date = Query(..., description="Target date (YYYY-MM-DD)"),
+    start_time: str = Query(..., description="Slot start time (HH:MM)"),
+    consultation_type: str = Query(..., description="'physical' or 'telemedicine'"),
+    db: Session = Depends(get_db),
+) -> SlotValidationResponse:
+    """
+    Lightweight slot validation for the booking flow.
+    Confirms doctor/clinic/day/time/consultation_type are all valid and bookable.
+    """
+    result = validate_slot(
+        db,
+        doctor_id=doctor_id,
+        clinic_id=clinic_id,
+        target_date=date,
+        start_time=start_time,
+        consultation_type=consultation_type,
+    )
+    return SlotValidationResponse(**result)
+
+
+# ---------------------------------------------------------------------------
+# AS-04: Resolve user_id to doctor_id
+# ---------------------------------------------------------------------------
+
+@router.get("/doctors/by-user/{user_id}", response_model=DoctorIdResponse)
+def internal_doctor_by_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+) -> DoctorIdResponse:
+    """
+    Internal endpoint to resolve an auth user_id to an admin DB doctor_id.
+    """
+    doctor = db.query(Doctor).filter(Doctor.user_id == user_id).first()
+    if not doctor:
+        raise HTTPException(
+            status_code=404,
+            detail="Doctor profile not found for this user",
+        )
+
+    return DoctorIdResponse(
+        doctor_id=doctor.doctor_id,
+        full_name=doctor.full_name,
+    )
+
