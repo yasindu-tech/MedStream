@@ -213,7 +213,7 @@ services:
 
   notification-service:
     build: ./notification-service
-    command: uvicorn main:app --host 0.0.0.0 --port 8010 --reload
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./notification-service:/app
     depends_on:
@@ -221,9 +221,13 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+asyncpg://dev_user:dev_password@communication_db:5432/medstream_communication
-      SERVICE_PORT: 8010
+      SMTP_HOST: "smtp.mailtrap.io"
+      SMTP_PORT: 587
+      SMTP_USER: "your_smtp_user"
+      SMTP_PASSWORD: "your_smtp_password"
+      EMAIL_FROM: "noreply@medstream.lk"
     ports:
-      - "8006:8010"
+      - "8006:8000"
     networks:
       - medstream-net
 
