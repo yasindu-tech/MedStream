@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import Base, engine
 from app.routers import router
+from app.routers.internal import router as internal_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -17,6 +18,7 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(internal_router, prefix="/internal")
 
 @app.get("/health")
 def health():
