@@ -73,3 +73,25 @@ def get_booked_slots_batch(
         return result
     except (httpx.RequestError, httpx.HTTPStatusError, KeyError, ValueError):
         return {}
+
+
+def get_effective_policy() -> dict:
+    """
+    Fetch effective appointment policy from appointment-service.
+
+    Fail-open to conservative defaults when unavailable.
+    """
+    url = f"{settings.APPOINTMENT_SERVICE_URL}/internal/policies/effective"
+    defaults = {
+        "advance_booking_days": 14,
+    }
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            response = client.get(url)
+            response.raise_for_status()
+            data = response.json()
+            return {
+                "advance_booking_days": int(data.get("advance_booking_days", defaults["advance_booking_days"])),
+            }
+    except (httpx.RequestError, httpx.HTTPStatusError, ValueError, TypeError):
+        return defaults
