@@ -90,11 +90,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_doctors_medical_registration_no
     WHERE medical_registration_no IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS admin.doctor_clinic_assignments (
-    assignment_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    doctor_id      uuid NOT NULL,
-    clinic_id      uuid NOT NULL,
-    status         varchar(30) NOT NULL DEFAULT 'active',
-    created_at     timestamptz NOT NULL DEFAULT now(),
+    assignment_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    doctor_id     uuid NOT NULL,
+    clinic_id     uuid NOT NULL,
+    status        varchar(30) NOT NULL DEFAULT 'active',
+    assigned_at   timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT fk_assign_doctor FOREIGN KEY (doctor_id) REFERENCES admin.doctors(doctor_id) ON DELETE CASCADE,
     CONSTRAINT fk_assign_clinic FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE,
     CONSTRAINT uq_assign UNIQUE (doctor_id, clinic_id)
@@ -117,6 +117,18 @@ CREATE TABLE IF NOT EXISTS admin.doctor_availability (
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_doctor_availability_slot
     ON admin.doctor_availability (doctor_id, clinic_id, day_of_week, start_time, consultation_type);
+
+CREATE TABLE IF NOT EXISTS admin.clinic_payment_accounts (
+    payment_account_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    clinic_id           uuid NOT NULL,
+    provider_name       varchar(120),
+    account_reference   varchar(255),
+    verification_status varchar(30) NOT NULL DEFAULT 'pending',
+    connected_at        timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT fk_payment_account_clinic
+        FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
+);
+
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA admin TO dev_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA admin TO dev_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA admin GRANT ALL ON TABLES TO dev_user;
@@ -177,8 +189,8 @@ INSERT INTO admin.doctors (
         'physical',
         'verified',
         'active',
-        NULL,                   -- incomplete profile (no bio)
-        NULL,                   -- incomplete profile (no experience)
+        NULL,           -- incomplete profile (no bio)
+        NULL,           -- incomplete profile (no experience)
         'MBBS (Colombo)',
         NULL,
         1000.00
@@ -215,3 +227,10 @@ VALUES
     ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'thursday',  '09:00', '14:00', 20, 'physical', 'active'),
     ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'saturday',  '09:00', '13:00', 20, 'physical', 'active')
 ON CONFLICT DO NOTHING;
+
+INSERT INTO admin.clinic_payment_accounts (clinic_id, provider_name, account_reference, verification_status)
+VALUES
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'PayHere',   'PAYHERE-CHC-001', 'verified'),
+    ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'PayHere',   'PAYHERE-KMI-002', 'verified'),
+    ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'Stripe',    'STRIPE-STC-003',  'pending')
+ON CONFLICT (payment_account_id) DO NOTHING;
