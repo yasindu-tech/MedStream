@@ -33,7 +33,15 @@ def reschedule_appointment(
     # ------------------------------------------------------------------
     # Step 1: Establish Patient context
     # ------------------------------------------------------------------
-    patient = db.query(Patient).filter(Patient.user_id == UUID(patient_user_id)).first()
+    try:
+        patient_uuid = UUID(patient_user_id)
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing patient user ID."
+        ) from exc
+
+    patient = db.query(Patient).filter(Patient.user_id == patient_uuid).first()
     if not patient:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
