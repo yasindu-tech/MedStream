@@ -45,3 +45,29 @@ def register_clinic_admin_user(
         status_code=status.HTTP_502_BAD_GATEWAY,
         detail=f"Auth service returned unexpected status: {response.status_code} - {detail}",
     )
+
+
+def deactivate_clinic_admin_user(user_id: str) -> None:
+    url = f"{settings.AUTH_SERVICE_URL}/internal/clinic-admin/{user_id}/deactivate"
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.post(url)
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Auth service unavailable: {str(exc)}",
+        )
+
+    if response.status_code in (status.HTTP_200_OK, status.HTTP_204_NO_CONTENT):
+        return
+
+    try:
+        detail = response.json().get("detail", response.text)
+    except ValueError:
+        detail = response.text
+
+    raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=f"Auth service returned unexpected status: {response.status_code} - {detail}",
+    )
