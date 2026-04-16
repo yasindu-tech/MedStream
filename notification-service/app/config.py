@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     SERVICE_NAME: str = "notification-service"
     SERVICE_PORT: int = 8007
 
+    # SMS Settings
+    TEXT_LK_API_URL: str = "https://app.text.lk/api/v3/sms/send"
+    TEXT_LK_API_TOKEN: Optional[str] = "4305|BH7LMlUnffx5ubWzlASjKAPlZr4EMLmvc8toxzjU3ff572be"
+    TEXT_LK_SENDER_ID: str = "TextLKDemo"
+    
     class Config:
         env_file = ".env"
 
