@@ -205,7 +205,7 @@ services:
       finance_db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@finance_db:5432/medstream_finance
+      DATABASE_URL: postgresql+asyncpg://dev_user:dev_password@finance_db:5432/medstream_finance
     ports:
       - "8005:8000"
     networks:
@@ -221,11 +221,6 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+asyncpg://dev_user:dev_password@communication_db:5432/medstream_communication
-      SMTP_HOST: "smtp.mailtrap.io"
-      SMTP_PORT: 587
-      SMTP_USER: "your_smtp_user"
-      SMTP_PASSWORD: "your_smtp_password"
-      EMAIL_FROM: "noreply@medstream.lk"
     ports:
       - "8006:8000"
     networks:
