@@ -20,4 +20,8 @@ class Settings(BaseSettings):
             if origin.strip()
         ]
 
+    @property
+    def cors_allow_credentials(self) -> bool:
+        return self.CORS_ALLOW_CREDENTIALS
+
 settings = Settings()
