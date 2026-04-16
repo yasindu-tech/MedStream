@@ -186,7 +186,7 @@ def reschedule_appointment(
     appt.status = new_status
     appt.payment_status = new_payment_status
     
-    # Execute the transation securely
+    # Execute the transaction securely
     db.commit()
     db.refresh(appt)
     
