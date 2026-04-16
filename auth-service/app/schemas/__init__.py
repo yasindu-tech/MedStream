@@ -3,10 +3,10 @@ from uuid import UUID
 from enum import Enum
 
 class RoleEnum(str, Enum):
-    admin   = "admin"
-    doctor  = "doctor"
+    super_admin = "super_admin"
+    clinic_admin = "clinic_admin"
+    doctor = "doctor"
     patient = "patient"
-    staff   = "staff"
 
 # --- Request Schemas ---
 class RegisterRequest(BaseModel):

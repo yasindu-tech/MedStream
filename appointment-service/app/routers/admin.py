@@ -1,4 +1,4 @@
-"""Admin and clinic-staff appointment oversight endpoints."""
+"""Super admin and clinic admin appointment oversight endpoints."""
 from __future__ import annotations
 
 from datetime import date
@@ -37,7 +37,7 @@ def admin_list_appointments(
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     status: Optional[str] = Query(None),
-    user: dict = Depends(require_roles("admin", "staff")),
+    user: dict = Depends(require_roles("super_admin", "clinic_admin")),
     db: Session = Depends(get_db),
 ) -> AppointmentListPaginatedResponse:
     return list_appointments_for_admin(
@@ -60,7 +60,7 @@ def admin_list_appointments(
 def admin_cancel_appointment(
     request: CancelAppointmentRequest,
     appointment_id: UUID = Path(...),
-    user: dict = Depends(require_roles("admin", "staff")),
+    user: dict = Depends(require_roles("super_admin", "clinic_admin")),
     db: Session = Depends(get_db),
 ) -> dict:
     return cancel_appointment(db, user=user, appointment_id=appointment_id, request=request)
@@ -70,7 +70,7 @@ def admin_cancel_appointment(
 def admin_mark_no_show(
     request: MarkNoShowRequest,
     appointment_id: UUID = Path(...),
-    user: dict = Depends(require_roles("admin", "staff")),
+    user: dict = Depends(require_roles("super_admin", "clinic_admin")),
     db: Session = Depends(get_db),
 ) -> AppointmentOutcomeResponse:
     appt = mark_no_show(
@@ -92,7 +92,7 @@ def admin_mark_no_show(
 @router.get("/appointments/{appointment_id}/status-history", response_model=list[AppointmentStatusHistoryItem])
 def admin_get_status_history(
     appointment_id: UUID = Path(...),
-    user: dict = Depends(require_roles("admin", "staff")),
+    user: dict = Depends(require_roles("super_admin", "clinic_admin")),
     db: Session = Depends(get_db),
 ) -> list[AppointmentStatusHistoryItem]:
     rows = get_status_history_for_admin(db, appointment_id=appointment_id, user=user)
@@ -113,7 +113,7 @@ def admin_get_status_history(
 def admin_statistics(
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
-    user: dict = Depends(require_roles("admin", "staff")),
+    user: dict = Depends(require_roles("super_admin", "clinic_admin")),
     db: Session = Depends(get_db),
 ) -> AppointmentStatsResponse:
     return get_appointment_stats(db, user=user, date_from=date_from, date_to=date_to)

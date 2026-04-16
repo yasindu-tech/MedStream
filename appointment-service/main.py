@@ -47,7 +47,7 @@ app.include_router(history_router)
 # Public: JWT required, appointment outcome actions.
 app.include_router(outcome_router)
 
-# Public: JWT required, admin and clinic-staff management endpoints.
+# Public: JWT required, super_admin and clinic_admin management endpoints.
 app.include_router(admin_router)
 
 # Public: JWT required, appointment policy management.

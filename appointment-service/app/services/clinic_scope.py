@@ -9,13 +9,14 @@ from fastapi import HTTPException, status
 from app.config import settings
 
 
-def resolve_staff_clinic_id(user_id: str) -> UUID:
-    url = f"{settings.CLINIC_SERVICE_URL}/internal/staff/{user_id}/clinic"
+def resolve_clinic_admin_clinic_id(user_id: str | UUID) -> UUID:
+    user_id_str = str(user_id)
+    url = f"{settings.CLINIC_SERVICE_URL}/internal/clinic-admin/{user_id_str}/clinic"
     try:
         with httpx.Client(timeout=5.0) as client:
             response = client.get(url)
             if response.status_code == status.HTTP_404_NOT_FOUND:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff user is not assigned to a clinic")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Clinic admin user is not assigned to a clinic")
             response.raise_for_status()
             payload = response.json()
             return UUID(payload["clinic_id"])

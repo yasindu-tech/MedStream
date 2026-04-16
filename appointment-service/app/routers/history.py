@@ -21,7 +21,7 @@ def view_appointment_history_endpoint(
     date: Optional[date] = Query(None, description="Filter by exact date"),
     status: Optional[str] = Query(None, description="Filter by status (e.g. cancelled, scheduled)"),
     consultation_type: Optional[str] = Query(None, description="Filter by physical or telemedicine"),
-    user: dict = Depends(require_roles("patient", "doctor", "staff", "admin")),
+    user: dict = Depends(require_roles("patient", "doctor", "clinic_admin", "super_admin")),
     db: Session = Depends(get_db),
 ) -> AppointmentListPaginatedResponse:
     """
