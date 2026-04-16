@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 from decimal import Decimal
 
@@ -29,10 +29,8 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_SUCCESS_URL: str = "http://localhost:3000/payment/success?session_id={CHECKOUT_SESSION_ID}"
     STRIPE_CANCEL_URL: str = "http://localhost:3000/payment/cancel"
+    ENABLE_STRIPE_MOCK: bool = True
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = 'utf-8'
-        extra = "ignore"
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
