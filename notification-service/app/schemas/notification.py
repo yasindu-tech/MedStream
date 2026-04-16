@@ -15,6 +15,7 @@ class EventCreate(NotificationBase):
     payload: Dict[str, Any]
     channels: Optional[List[NotificationChannel]] = None
     priority: str = "normal"  # "normal" | "critical"
+    scheduled_at: Optional[datetime] = None
 
 class EventResponse(NotificationBase):
     notification_id: UUID
@@ -23,11 +24,13 @@ class EventResponse(NotificationBase):
 # Preference Schemas
 class PreferenceUpdate(NotificationBase):
     email_enabled: Optional[bool] = None
+    sms_enabled: Optional[bool] = None
     in_app_enabled: Optional[bool] = None
 
 class PreferenceRead(NotificationBase):
     user_id: UUID
     email_enabled: bool
+    sms_enabled: bool
     in_app_enabled: bool
 
 # History Schemas
@@ -48,30 +51,25 @@ class InboxResponse(NotificationBase):
     unread_count: int
 
 # Template Schemas
-class TemplateCreate(NotificationBase):
-    name: str
-    channel: NotificationChannel
-    subject: Optional[str] = None
-    body_template: str
+class TemplateBase(NotificationBase):
     event_type: str
+    title_template: str
+    body_template: str
+    channels: List[NotificationChannel] = ["email", "in_app"]
     is_active: bool = True
 
+class TemplateCreate(TemplateBase):
+    pass
+
 class TemplateUpdate(NotificationBase):
-    name: Optional[str] = None
-    channel: Optional[NotificationChannel] = None
-    subject: Optional[str] = None
+    title_template: Optional[str] = None
     body_template: Optional[str] = None
-    event_type: Optional[str] = None
+    channels: Optional[List[NotificationChannel]] = None
     is_active: Optional[bool] = None
 
-class TemplateRead(NotificationBase):
+class TemplateRead(TemplateBase):
     id: UUID
-    name: str
-    channel: NotificationChannel
-    subject: Optional[str]
-    body_template: str
-    event_type: str
-    is_active: bool
+    version: int
     created_at: datetime
     updated_at: datetime
 

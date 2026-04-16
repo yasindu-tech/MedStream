@@ -38,14 +38,27 @@ class NotificationTemplate(Base):
     __table_args__ = {"schema": "communication"}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(100), nullable=False, unique=True)
-    channel = Column(channel_type, nullable=False)
-    subject = Column(String(255))
+    event_type = Column(String(100), unique=True, nullable=False, index=True)
+    title_template = Column(String(200), nullable=False)
     body_template = Column(Text, nullable=False)
-    event_type = Column(String(100), nullable=False)
+    channels = Column(JSONB, nullable=False, default=[])  # e.g., ["email", "sms", "in_app"]
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    version = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class NotificationTemplateVersion(Base):
+    __tablename__ = "notification_template_versions"
+    __table_args__ = {"schema": "communication"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    template_id = Column(UUID(as_uuid=True), ForeignKey("communication.notification_templates.id"), nullable=False)
+    event_type = Column(String(100), nullable=False)
+    title_template = Column(String(200), nullable=False)
+    body_template = Column(Text, nullable=False)
+    version = Column(Integer, nullable=False)
+    changed_by = Column(String(255), nullable=True)  # Store admin email
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 class UserNotificationPreference(Base):
     __tablename__ = "user_notification_preferences"
@@ -54,6 +67,7 @@ class UserNotificationPreference(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), nullable=False, unique=True)
     email_enabled = Column(Boolean, default=True)
+    sms_enabled = Column(Boolean, default=True)  # Added for AS-08
     in_app_enabled = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
