@@ -1,7 +1,6 @@
 """Reschedule appointment logic."""
 from __future__ import annotations
-from datetime import datetime, date, time, timedelta, timezone
-from typing import Optional
+from datetime import datetime, timedelta
 from uuid import UUID
 
 import httpx
