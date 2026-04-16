@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, timedelta
-from datetime import datetime
+from sqlalchemy import select, update
+from datetime import datetime, timedelta
 from uuid import UUID
 import logging
 from typing import Optional, Dict, Any, List
@@ -11,9 +11,10 @@ from app.models.notification import (
     Notification
 )
 from app.services.email_service import EmailService
+from app.services.sms_service import SMSService
 from app.services.template_service import TemplateService
 from app.services.websocket_service import manager
-from app.database import SessionLocal
+from app.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ async def process_notification_queue():
     Background worker that processes the pending 'notifications' table.
     Checks for items where status='queued' and scheduled time has arrived.
     """
-    async with SessionLocal() as db:
+    async with AsyncSessionLocal() as db:
         stmt = (
             select(Notification)
             .where(Notification.status.in_(['queued', 'failed']))
@@ -33,19 +34,31 @@ async def process_notification_queue():
 
         for item in items:
             try:
-                # 1. Dispatch Email (Simplified for unified model)
+                # 3. Dispatch Layer (Route by channel)
+                success = False
                 if item.channel == "email":
-                    success = EmailService.send_email(
+                    success = await EmailService.send_email(
                         to_email=item.payload.get("email", "patient@medstream.lk") if hasattr(item, 'payload') else "patient@medstream.lk",
                         subject=item.title,
                         html_content=item.message
                     )
-
-                    if success:
-                        item.status = 'sent'
-                        item.sent_at = datetime.utcnow()
+                elif item.channel == "sms":
+                    # Get phone from payload - no fallback
+                    phone = item.payload.get("phone") if hasattr(item, 'payload') else None
+                    if not phone:
+                        logger.error(f"Cannot send SMS for notification {item.notification_id}: Missing recipient phone number.")
+                        success = False
                     else:
-                        item.status = 'failed'
+                        success = await SMSService.send_sms(
+                            recipient=phone,
+                            message=item.message
+                        )
+
+                if success:
+                    item.status = 'sent'
+                    item.sent_at = datetime.utcnow()
+                else:
+                    item.status = 'failed'
                 
             except Exception as e:
                 logger.error(f"Error in background worker for item {item.notification_id}: {e}")
@@ -76,6 +89,7 @@ class NotificationService:
         message = TemplateService.render_body(template.body, event_data.payload)
 
         # 4. Save to Unified Notifications Table
+        logger.info(f"Triggering notification for event [{event_data.event_type}] to user [{event_data.user_id}]. Payload: {event_data.payload}")
         notification = Notification(
             user_id=event_data.user_id,
             template_id=template.template_id,
@@ -83,6 +97,7 @@ class NotificationService:
             channel=template.channel,
             title=title,
             message=message,
+            payload=event_data.payload,
             status='queued'
         )
         
@@ -105,6 +120,67 @@ class NotificationService:
         return notification.notification_id
 
 async def seed_default_templates():
-    # Python seeding is now a fallback; SQL handles the initial boot.
-    async with SessionLocal() as db:
-        pass
+    """
+    Seeds the database with default notification templates if they don't exist.
+    """
+    templates = [
+        {
+            "event_type": "appointment.booked",
+            "channel": "email",
+            "subject": "Appointment Confirmed",
+            "body": "Hello {patient_name}, your appointment with {doctor_name} is confirmed for {date} at {time}."
+        },
+        {
+            "event_type": "appointment.cancelled",
+            "channel": "email",
+            "subject": "Appointment Cancelled",
+            "body": "Dear {patient_name}, your appointment with {doctor_name} on {date} has been cancelled."
+        },
+        {
+            "event_type": "account.verification",
+            "channel": "email",
+            "subject": "Verify Your Account",
+            "body": "Your verification code is: {otp}"
+        },
+        {
+            "event_type": "account.password_reset",
+            "channel": "email",
+            "subject": "Reset Your Password",
+            "body": "Click here to reset your password: {reset_link}"
+        },
+        {
+            "event_type": "prescription.available",
+            "channel": "in_app",
+            "subject": "New Prescription Available",
+            "body": "Dr. {doctor_name} has issued a new prescription for you. You can view it in the app."
+        },
+        {
+            "event_type": "payment.confirmed",
+            "channel": "email",
+            "subject": "Payment Received",
+            "body": "Hello, your payment of {amount} {currency} for appointment {appointment_id} was successful. Transaction: {transaction_reference}"
+        },
+        {
+            "event_type": "payment.failed",
+            "channel": "email",
+            "subject": "Payment Failed",
+            "body": "Your payment of {amount} {currency} failed. Reason: {reason}. You have {retries_remaining} retries left."
+        },
+        {
+            "event_type": "payment.refunded",
+            "channel": "email",
+            "subject": "Refund Processed",
+            "body": "A refund of {refund_amount} {currency} has been processed for your payment. Reason: {reason}"
+        }
+    ]
+
+    async with AsyncSessionLocal() as db:
+        for t_data in templates:
+            # Check if exists
+            stmt = select(NotificationTemplate).where(NotificationTemplate.event_type == t_data["event_type"])
+            result = await db.execute(stmt)
+            if not result.scalar_one_or_none():
+                db.add(NotificationTemplate(**t_data))
+        
+        await db.commit()
+        logger.info("Default notification templates seeded successfully.")

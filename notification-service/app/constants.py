@@ -8,6 +8,9 @@ class EventTypes:
     ACCOUNT_APPROVED = "account.approved"
     ACCOUNT_SUSPENDED = "account.suspended"
     PRESCRIPTION_AVAILABLE = "prescription.available"
+    PAYMENT_CONFIRMED = "payment.confirmed"
+    PAYMENT_FAILED = "payment.failed"
+    PAYMENT_REFUNDED = "payment.refunded"
 
     @classmethod
     def all(cls):
@@ -21,4 +24,7 @@ class EventTypes:
             cls.ACCOUNT_APPROVED,
             cls.ACCOUNT_SUSPENDED,
             cls.PRESCRIPTION_AVAILABLE,
+            cls.PAYMENT_CONFIRMED,
+            cls.PAYMENT_FAILED,
+            cls.PAYMENT_REFUNDED,
         ]
