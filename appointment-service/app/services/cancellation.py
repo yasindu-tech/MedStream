@@ -42,17 +42,24 @@ def cancel_appointment(
         )
 
     role = user.get("role")
-    user_id = user.get("sub")
+    if not role:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing role claim in token.")
+
+    user_sub = user.get("sub")
+    if not user_sub:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing subject claim in token.")
+    try:
+        user_id = UUID(str(user_sub))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid subject claim in token.")
     
     # 2. Branch workflows by Role
     if role == "patient":
         _handle_patient_cancel(db, appt, user_id, request.reason)
     elif role == "doctor":
         _handle_doctor_cancel(db, appt, user_id, request.reason)
-    elif role == "clinic_admin":
-        _handle_clinic_admin_cancel(appt, user_id, request.reason)
-    elif role == "system_admin":
-        _handle_system_admin_cancel(appt, user_id, request.reason)
+    elif role == "admin":
+        _handle_admin_cancel(appt, user_id, request.reason)
     else:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unrecognized role for cancellation action.")
 
@@ -62,7 +69,7 @@ def cancel_appointment(
         appointment_id=appt.appointment_id,
         old_status=appt.status,
         new_status="cancelled",
-        changed_by=f"Role: {role} (ID: {user_id})",
+        changed_by=f"Role: {role} (ID: {str(user_id)})",
         reason=request.reason or "No reason provided"
     )
     db.add(history_record)
@@ -85,8 +92,8 @@ def cancel_appointment(
     }
 
 
-def _handle_patient_cancel(db: Session, appt: Appointment, user_id: str, reason: Optional[str]):
-    patient = db.query(Patient).filter(Patient.user_id == UUID(user_id)).first()
+def _handle_patient_cancel(db: Session, appt: Appointment, user_id: UUID, reason: Optional[str]):
+    patient = db.query(Patient).filter(Patient.user_id == user_id).first()
     if not patient or appt.patient_id != patient.patient_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only cancel your own appointments.")
 
@@ -99,7 +106,7 @@ def _handle_patient_cancel(db: Session, appt: Appointment, user_id: str, reason:
             detail=f"Patients can only cancel directly up to {settings.CANCELLATION_WINDOW_HOURS} hours before the appointment."
         )
 
-def _handle_doctor_cancel(db: Session, appt: Appointment, user_id: str, reason: Optional[str]):
+def _handle_doctor_cancel(db: Session, appt: Appointment, user_id: UUID, reason: Optional[str]):
     # Prevent doctors throwing away requests quietly
     if not reason or len(reason.strip()) < 5:
         raise HTTPException(
@@ -107,14 +114,10 @@ def _handle_doctor_cancel(db: Session, appt: Appointment, user_id: str, reason: 
             detail="Doctors are required to supply a valid operational reason for cancelling an appointment."
         )
 
-    doctor_info = _get_doctor_info_by_user(user_id)
+    doctor_info = _get_doctor_info_by_user(str(user_id))
     if UUID(doctor_info["doctor_id"]) != appt.doctor_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are restricted to cancelling your own appointments exclusively.")
 
-def _handle_clinic_admin_cancel(appt: Appointment, user_id: str, reason: Optional[str]):
-    # TODO: Validate clinic scope authorization using clinic-service logic 
-    pass
-
-def _handle_system_admin_cancel(appt: Appointment, user_id: str, reason: Optional[str]):
-    # Absolute override capability. System Admins can cancel universally.
+def _handle_admin_cancel(appt: Appointment, user_id: UUID, reason: Optional[str]):
+    # Absolute override capability. Admins can cancel universally.
     pass
