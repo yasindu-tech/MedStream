@@ -1,27 +1,37 @@
-"""Payment service configuration and settings."""
-
 from pydantic_settings import BaseSettings
-
+from typing import Optional
+from decimal import Decimal
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql+psycopg2://dev_user:dev_password@localhost:5435/medstream_finance"
-    CORS_ALLOWED_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
-    CORS_ALLOW_CREDENTIALS: bool = True
+    # Core Service Settings
+    SERVICE_NAME: str = "payment-service"
+    SERVICE_PORT: int = 8006
+    ENVIRONMENT: str = "development"
+
+    # Database Settings
+    # postgresql+asyncpg://postgres:password@finance-db:5432/medstream_finance
+    DATABASE_URL: str
+
+    # JWT Settings
+    JWT_SECRET: str
+    JWT_ALGORITHM: str = "HS256"
+
+    # Commission / Split Settings
+    PLATFORM_COMMISSION_PCT: float = 10.0
+    CLINIC_SHARE_PCT: float = 60.0
+    DOCTOR_SHARE_PCT: float = 30.0
+
+    # Notification Service
+    NOTIFICATION_SERVICE_URL: str = "http://notification-service:8007"
+
+    # Stripe Settings
+    STRIPE_API_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_SUCCESS_URL: str = "http://localhost:3000/payment/success?session_id={CHECKOUT_SESSION_ID}"
+    STRIPE_CANCEL_URL: str = "http://localhost:3000/payment/cancel"
 
     class Config:
         env_file = ".env"
-
-    @property
-    def cors_allowed_origins(self) -> list[str]:
-        return [
-            origin.strip()
-            for origin in self.CORS_ALLOWED_ORIGINS.split(",")
-            if origin.strip()
-        ]
-
-    @property
-    def cors_allow_credentials(self) -> bool:
-        return self.CORS_ALLOW_CREDENTIALS
-
+        env_file_encoding = 'utf-8'
 
 settings = Settings()
