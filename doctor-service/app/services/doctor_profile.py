@@ -14,11 +14,8 @@ from app.schemas import (
     DoctorProfileResponse,
     SlotItem,
 )
-from app.services.appointment_client import get_booked_slots
+from app.services.appointment_client import get_booked_slots, get_effective_policy
 from app.services.slots import generate_slots
-
-# TODO: Move to a config table or doctor_availability column in the future
-ADVANCE_BOOKING_DAYS = 14
 
 
 def get_doctor_profile(
@@ -52,7 +49,8 @@ def get_doctor_profile(
     date_within_window = False
     if target_date:
         day_of_week = target_date.strftime("%A").lower()
-        max_date = date.today() + timedelta(days=ADVANCE_BOOKING_DAYS)
+        policy = get_effective_policy()
+        max_date = date.today() + timedelta(days=policy["advance_booking_days"])
         date_within_window = target_date <= max_date and target_date >= date.today()
 
     # 3. Load active clinic assignments with clinic data

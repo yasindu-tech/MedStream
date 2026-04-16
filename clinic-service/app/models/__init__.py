@@ -1,10 +1,9 @@
-from __future__ import annotations
-
-import datetime
+"""SQLAlchemy models for clinic-service internal lookups."""
 import uuid
 
-from sqlalchemy import Column, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Column, DateTime, String
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
 
 from app.database import Base
 

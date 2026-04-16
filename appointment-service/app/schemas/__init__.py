@@ -154,3 +154,103 @@ class RescheduleAppointmentRequest(BaseModel):
     new_start_time: str  # "HH:MM"
     new_consultation_type: str
 
+
+# ---------------------------------------------------------------------------
+# AS-06: Cancel Appointment
+# ---------------------------------------------------------------------------
+
+class CancelAppointmentRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# AS-08: View Appointment History
+# ---------------------------------------------------------------------------
+
+class AppointmentListItemResponse(BaseModel):
+    appointment_id: UUID
+    doctor_id: UUID
+    doctor_name: Optional[str]
+    clinic_id: UUID
+    clinic_name: Optional[str]
+    patient_id: UUID
+    patient_name: str
+    date: date
+    start_time: str
+    end_time: str
+    status: str
+    payment_status: str
+    consultation_type: str
+    # prescription_id: Optional[UUID] = None
+    # payment_id: Optional[UUID] = None
+
+class AppointmentListPaginatedResponse(BaseModel):
+    items: list[AppointmentListItemResponse]
+    total: int
+    page: int
+    size: int
+    has_more: bool
+
+
+# ---------------------------------------------------------------------------
+# AS-09 / AS-10 / AS-11: Outcome, Admin, Policy
+# ---------------------------------------------------------------------------
+
+class AppointmentOutcomeResponse(BaseModel):
+    appointment_id: UUID
+    status: str
+    changed_at: str
+    message: str
+
+
+class MarkNoShowRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+class MarkArrivedRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+class InternalNoShowRequest(BaseModel):
+    reason: Optional[str] = None
+    mark_by: str = "system"
+    observed_join_within_grace: bool = False
+
+
+class AppointmentStatusHistoryItem(BaseModel):
+    history_id: UUID
+    old_status: Optional[str]
+    new_status: str
+    changed_by: Optional[str]
+    reason: Optional[str]
+    changed_at: str
+
+
+class AppointmentStatsResponse(BaseModel):
+    total_bookings: int
+    total_cancellations: int
+    total_no_shows: int
+    total_completed: int
+
+
+class AppointmentPolicyResponse(BaseModel):
+    policy_id: UUID
+    cancellation_window_hours: int
+    reschedule_window_hours: int
+    advance_booking_days: int
+    no_show_grace_period_minutes: int
+    max_reschedules: int
+    is_active: bool
+    created_by: Optional[str]
+    created_at: str
+    updated_at: str
+
+
+class UpdateAppointmentPolicyRequest(BaseModel):
+    cancellation_window_hours: int
+    reschedule_window_hours: int
+    advance_booking_days: int
+    no_show_grace_period_minutes: int
+    max_reschedules: int
+    reason: Optional[str] = None
+

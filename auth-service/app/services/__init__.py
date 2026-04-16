@@ -118,6 +118,19 @@ def login_user(data: LoginRequest, db: Session) -> dict:
 def refresh_tokens(refresh_token: str, db: Session) -> dict:
     payload = decode_token(refresh_token)
     if payload.get("type") != "refresh":
+<<<<<<< HEAD
+        raise HTTPException(status_code=401, detail="Invalid token type")
+    user = db.query(User).filter(User.user_id == payload["sub"]).first()
+    if not user or user.account_status != "ACTIVE":
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    role_name = _resolve_primary_role(db, str(user.user_id))
+    return {
+        "access_token":  create_access_token(str(user.user_id), role_name),
+        "refresh_token": create_refresh_token(str(user.user_id)),
+        "token_type":    "bearer"
+    }
+=======
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
 
     session = db.query(AuthSession).filter(AuthSession.refresh_token == refresh_token).first()
@@ -217,3 +230,4 @@ def verify_otp_code(email: str, otp_code: str, purpose: OtpPurpose, new_password
 
 def get_all_roles(db: Session) -> list[str]:
     return [role.role_name for role in db.query(Role).order_by(Role.role_name).all()]
+>>>>>>> ea0b18601531a99916cf505c4f622e3b1e6e888b

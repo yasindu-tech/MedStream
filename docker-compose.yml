@@ -179,6 +179,8 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@patientcare_db:5432/medstream_patientcare
       DOCTOR_SERVICE_URL: http://doctor-service:8000
+      CLINIC_SERVICE_URL: http://clinic-service:8000
+      NOTIFICATION_SERVICE_URL: http://notification-service:8000
     ports:
       - "8004:8000"
     networks:
@@ -191,6 +193,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@patientcare_db:5432/medstream_patientcare
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8000
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./telemedicine-service:/app
