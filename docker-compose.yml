@@ -30,11 +30,6 @@ services:
     volumes:
       - auth_postgres_data:/var/lib/postgresql/data
       - ./infrastructure/db/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d medstream_auth" ]
-      interval: 5s
-      timeout: 5s
-      retries: 10
     networks:
       - medstream-net
 
@@ -50,11 +45,6 @@ services:
     volumes:
       - admin_postgres_data:/var/lib/postgresql/data
       - ./infrastructure/db/init-admin-db.sql:/docker-entrypoint-initdb.d/init-admin-db.sql:ro
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d medstream_admin" ]
-      interval: 5s
-      timeout: 5s
-      retries: 10
     networks:
       - medstream-net
 
@@ -70,11 +60,6 @@ services:
     volumes:
       - patientcare_postgres_data:/var/lib/postgresql/data
       - ./infrastructure/db/init-patientcare-db.sql:/docker-entrypoint-initdb.d/init-patientcare-db.sql:ro
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d medstream_patientcare" ]
-      interval: 5s
-      timeout: 5s
-      retries: 10
     networks:
       - medstream-net
 
@@ -90,11 +75,6 @@ services:
     volumes:
       - finance_postgres_data:/var/lib/postgresql/data
       - ./infrastructure/db/init-finance-db.sql:/docker-entrypoint-initdb.d/init-finance-db.sql:ro
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d medstream_finance" ]
-      interval: 5s
-      timeout: 5s
-      retries: 10
     networks:
       - medstream-net
 
@@ -110,11 +90,6 @@ services:
     volumes:
       - communication_postgres_data:/var/lib/postgresql/data
       - ./infrastructure/db/init-communication-db.sql:/docker-entrypoint-initdb.d/init-communication-db.sql:ro
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d medstream_communication" ]
-      interval: 5s
-      timeout: 5s
-      retries: 10
     networks:
       - medstream-net
 
@@ -125,7 +100,7 @@ services:
       - ./auth-service:/app
     depends_on:
       auth_db:
-        condition: service_healthy
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@auth_db:5432/medstream_auth
     ports:
@@ -140,7 +115,7 @@ services:
       - ./patient-service:/app
     depends_on:
       patientcare_db:
-        condition: service_healthy
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@patientcare_db:5432/medstream_patientcare
     ports:
@@ -155,7 +130,7 @@ services:
       - ./clinic-service:/app
     depends_on:
       admin_db:
-        condition: service_healthy
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@admin_db:5432/medstream_admin
       AUTH_SERVICE_URL: http://auth-service:8000
@@ -173,9 +148,9 @@ services:
       - ./appointment-service:/app
     depends_on:
       patientcare_db:
-        condition: service_healthy
+        condition: service_started
       doctor-service:
-        condition: service_healthy
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@patientcare_db:5432/medstream_patientcare
       DOCTOR_SERVICE_URL: http://doctor-service:8000
@@ -190,7 +165,7 @@ services:
     build: ./telemedicine-service
     depends_on:
       patientcare_db:
-        condition: service_healthy
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@patientcare_db:5432/medstream_patientcare
       APPOINTMENT_SERVICE_URL: http://appointment-service:8000
@@ -209,7 +184,7 @@ services:
       - ./payment-service:/app
     depends_on:
       finance_db:
-        condition: service_healthy
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://dev_user:dev_password@finance_db:5432/medstream_finance
       STRIPE_API_KEY: ${STRIPE_API_KEY:-}
@@ -230,7 +205,7 @@ services:
       - ./notification-service:/app
     depends_on:
       communication_db:
-        condition: service_healthy
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://dev_user:dev_password@communication_db:5432/medstream_communication
     ports:
@@ -245,16 +220,10 @@ services:
       - ./doctor-service:/app
     depends_on:
       admin_db:
-        condition: service_healthy
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@admin_db:5432/medstream_admin
       APPOINTMENT_SERVICE_URL: http://appointment-service:8000
-    healthcheck:
-      test: [ "CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")'" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
     ports:
       - "8007:8000"
     networks:
