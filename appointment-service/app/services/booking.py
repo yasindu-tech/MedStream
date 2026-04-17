@@ -191,21 +191,35 @@ def book_appointment(
     )
 
     # ------------------------------------------------------------------
-    # Step 5: TODO — Payment service integration
+    # Step 7: Payment service integration
     # When payment is required (consultation_fee > 0):
-    #   - Call POST http://payment-service:8000/internal/payments
-    #     with appointment_id, patient_id, amount
-    #   - Store returned payment_id
-    #   - Payment service will call back to confirm the appointment
+    #   - Call POST http://payment-service:8000/api/payments/
+    #     with appointment_id, patient_id, doctor_id, clinic_id, amount
+    #   - Store returned payment_id for frontend redirect
     # ------------------------------------------------------------------
-
-    # ------------------------------------------------------------------
-    # Step 6: TODO — Notification service integration
-    # When appointment is confirmed (no payment required):
-    #   - Call POST http://notification-service:8000/internal/notifications
-    #     with user_id, channel, payload (appointment details)
-    #   - Fire-and-forget, do not block on response
-    # ------------------------------------------------------------------
+    payment_id = None
+    if consultation_fee and consultation_fee > 0:
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                pay_resp = client.post(
+                    f"{settings.PAYMENT_SERVICE_URL}/api/payments/",
+                    json={
+                        "appointment_id": str(appointment.appointment_id),
+                        "patient_id": patient_id,
+                        "doctor_id": str(request.doctor_id),
+                        "clinic_id": str(request.clinic_id),
+                        "amount": float(consultation_fee),
+                        "currency": "LKR",
+                    },
+                    headers={"Authorization": "Bearer internal-service-call"},
+                )
+                if pay_resp.status_code in (200, 201):
+                    pay_data = pay_resp.json()
+                    payment_id = pay_data.get("payment_id")
+        except Exception:
+            # Payment service unavailable — booking still succeeds with
+            # payment_status="pending" so it can be retried later.
+            pass
 
     return BookAppointmentResponse(
         appointment_id=appointment.appointment_id,
@@ -218,6 +232,7 @@ def book_appointment(
         status=appointment.status,
         payment_status=appointment.payment_status,
         consultation_fee=consultation_fee,
+        payment_id=payment_id,
         message=message,
     )
 
