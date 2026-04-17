@@ -65,10 +65,13 @@ CREATE TABLE IF NOT EXISTS patientcare.chronic_conditions (
 CREATE TABLE IF NOT EXISTS patientcare.medical_documents (
     document_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     patient_id uuid NOT NULL,
+    appointment_id uuid,
     document_type varchar(100) NOT NULL,
     file_name varchar(255) NOT NULL,
     file_url text NOT NULL,
     visibility varchar(30) NOT NULL DEFAULT 'private',
+    description text,
+    uploaded_by varchar(50),
     uploaded_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT fk_documents_patient FOREIGN KEY (patient_id) REFERENCES patientcare.patients(patient_id) ON DELETE CASCADE
 );
@@ -152,8 +155,14 @@ CREATE TABLE IF NOT EXISTS patientcare.prescriptions (
     appointment_id uuid NOT NULL UNIQUE,
     patient_id uuid NOT NULL,
     doctor_id uuid,
+    clinic_id uuid,
+    medications jsonb NOT NULL DEFAULT '[]',
     notes text,
-    issued_at timestamptz NOT NULL DEFAULT now(),
+    status varchar(30) NOT NULL DEFAULT 'draft',
+    issued_at timestamptz,
+    finalized_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT fk_prescriptions_appointment FOREIGN KEY (appointment_id) REFERENCES patientcare.appointments(appointment_id) ON DELETE CASCADE,
     CONSTRAINT fk_prescriptions_patient FOREIGN KEY (patient_id) REFERENCES patientcare.patients(patient_id) ON DELETE CASCADE
 );
@@ -167,6 +176,16 @@ CREATE TABLE IF NOT EXISTS patientcare.prescription_items (
     duration varchar(100),
     instruction text,
     CONSTRAINT fk_prescription_items_prescription FOREIGN KEY (prescription_id) REFERENCES patientcare.prescriptions(prescription_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS patientcare.appointment_notes (
+    note_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    appointment_id uuid NOT NULL,
+    doctor_id uuid NOT NULL,
+    content text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT fk_appointment_notes_appointment FOREIGN KEY (appointment_id) REFERENCES patientcare.appointments(appointment_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS patientcare.follow_up_suggestions (
@@ -298,13 +317,15 @@ INSERT INTO patientcare.consultation_notes (
 ON CONFLICT (note_id) DO NOTHING;
 
 INSERT INTO patientcare.prescriptions (
-    prescription_id, appointment_id, patient_id, doctor_id, notes
+    prescription_id, appointment_id, patient_id, doctor_id, clinic_id, medications, notes
 ) VALUES
     (
         'e4e4e4e4-e4e4-44e4-84e4-e4e4e4e4e4e4',
         'abababab-abab-4ab1-8ab1-ababababab13',
         '99999999-9999-4999-8999-999999999991',
         (SELECT doctor_id FROM patientcare.appointments WHERE appointment_id = 'abababab-abab-4ab1-8ab1-ababababab13'),
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        '[{"name": "Cetirizine", "dosage": "10mg", "frequency": "Once daily", "duration": "5 days", "notes": "Take at night"}]',
         'Take after meals'
     )
 ON CONFLICT (prescription_id) DO NOTHING;

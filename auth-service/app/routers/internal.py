@@ -1,6 +1,6 @@
 import os
 import secrets
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -40,6 +40,12 @@ class ClinicStaffOnboardingResponse(BaseModel):
 
 class SuspendUserRequest(BaseModel):
     reason: Optional[str] = None
+
+
+class UserStatusResponse(BaseModel):
+    id: UUID
+    roles: List[str]
+    account_status: str
 
 
 def require_internal_service_auth(x_internal_auth: Optional[str] = Header(default=None)) -> None:
@@ -124,3 +130,16 @@ def suspend_user_account(user_id: UUID, payload: SuspendUserRequest, db: Session
 
     suspend_user(user_id, reason=payload.reason, db=db)
     return {"success": True}
+
+
+@router.get("/users/{user_id}", response_model=UserStatusResponse)
+def get_user_status(user_id: UUID, db: Session = Depends(get_db)) -> UserStatusResponse:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    return UserStatusResponse(
+        id=user.id,
+        roles=user.role_names,
+        account_status=user.account_status,
+    )

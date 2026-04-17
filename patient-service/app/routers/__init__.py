@@ -28,7 +28,7 @@ def get_patient_profile_by_user_id(user_id: UUID, db: Session = Depends(get_db))
     return patient
 
 
-@router.get("/{patient_id}", response_model=PatientProfileResponse)
+@router.get("/patients/{patient_id}", response_model=PatientProfileResponse)
 def get_patient_profile(patient_id: UUID, db: Session = Depends(get_db)) -> PatientProfileResponse:
     patient = db.query(Patient).filter(Patient.patient_id == patient_id).first()
     if not patient:
