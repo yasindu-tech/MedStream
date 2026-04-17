@@ -128,11 +128,6 @@ class DoctorProfileHistoryListResponse(BaseModel):
     total: int
 
 
-class DoctorVisibilityRequest(BaseModel):
-    visible: bool
-    visible: bool
-
-
 class DoctorClinicAssignmentItem(BaseModel):
     clinic_id: UUID
     clinic_name: str
