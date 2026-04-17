@@ -5,10 +5,12 @@ No JWT auth is applied here; network-level isolation is the security boundary.
 """
 from __future__ import annotations
 from datetime import date
+import hmac
+import os
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -35,7 +37,28 @@ from app.services.doctor_verification import (
 )
 from app.services.slot_validator import validate_slot
 
-router = APIRouter(tags=["internal"])
+
+def _require_internal_service_auth(
+    x_internal_service_token: str | None = Header(default=None, alias="X-Internal-Service-Token"),
+) -> None:
+    expected_token = os.getenv("INTERNAL_SERVICE_TOKEN")
+    if not expected_token or not x_internal_service_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized internal request",
+        )
+
+    if not hmac.compare_digest(x_internal_service_token, expected_token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized internal request",
+        )
+
+
+router = APIRouter(
+    tags=["internal"],
+    dependencies=[Depends(_require_internal_service_auth)],
+)
 
 
 # ---------------------------------------------------------------------------
