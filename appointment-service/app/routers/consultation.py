@@ -80,7 +80,7 @@ def reject_appointment_request(
 @router.post("/{appointment_id}/notes", response_model=AppointmentNoteResponse, status_code=201)
 def add_appointment_note(
     appointment_id: UUID = Path(...),
-    request: AppointmentNoteRequest = Depends(),
+    request: AppointmentNoteRequest,
     user: dict = Depends(require_roles("doctor")),
     db: Session = Depends(get_db),
 ) -> AppointmentNoteResponse:
