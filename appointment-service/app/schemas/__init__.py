@@ -10,6 +10,11 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 # Internal: booked slot contract (consumed by doctor-service)
 # ---------------------------------------------------------------------------
 
+class DoctorEventRequest(BaseModel):
+    event_type: str
+    payload: dict
+
+
 class BookedSlotResponse(BaseModel):
     doctor_id: UUID
     clinic_id: UUID
@@ -113,10 +118,106 @@ class BookAppointmentResponse(BaseModel):
     start_time: str
     end_time: str
     consultation_type: str
-    status: str             # "pending_payment" or "confirmed"
+    status: str             # "pending_doctor", "pending_payment", or "confirmed"
     payment_status: str     # "pending" or "not_required"
     consultation_fee: Optional[float] = None
     message: str
+
+
+class AppointmentActionRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+class AppointmentNoteRequest(BaseModel):
+    content: str
+
+
+class AppointmentNoteResponse(BaseModel):
+    note_id: UUID
+    appointment_id: UUID
+    doctor_id: UUID
+    content: str
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class MedicationItem(BaseModel):
+    name: str
+    dosage: Optional[str] = None
+    frequency: Optional[str] = None
+    duration: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class PrescriptionRequest(BaseModel):
+    medications: List[MedicationItem]
+    instructions: Optional[str] = None
+
+
+class PrescriptionResponse(BaseModel):
+    prescription_id: UUID
+    appointment_id: UUID
+    doctor_id: UUID
+    patient_id: UUID
+    clinic_id: Optional[UUID] = None
+    medications: List[MedicationItem]
+    instructions: Optional[str] = None
+    status: str
+    issued_at: Optional[str] = None
+    finalized_at: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class PatientSummaryResponse(BaseModel):
+    patient_id: UUID
+    full_name: str
+    dob: Optional[date] = None
+    gender: Optional[str] = None
+    nic_passport: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    blood_group: Optional[str] = None
+    appointment_id: UUID
+    appointment_date: date
+    appointment_start_time: str
+    appointment_end_time: str
+    appointment_type: str
+    appointment_status: str
+    consultation_fee: Optional[float] = None
+
+
+class PatientDocumentRequest(BaseModel):
+    name: str
+    document_type: Optional[str] = None
+    url: str
+    description: Optional[str] = None
+
+
+class PatientDocumentResponse(BaseModel):
+    document_id: UUID
+    patient_id: UUID
+    appointment_id: Optional[UUID] = None
+    name: str
+    document_type: Optional[str] = None
+    url: str
+    description: Optional[str] = None
+    uploaded_by: Optional[str] = None
+    uploaded_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class PatientDocumentsResponse(BaseModel):
+    results: List[PatientDocumentResponse]
+    total: int
 
 
 # ---------------------------------------------------------------------------

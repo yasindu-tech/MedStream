@@ -45,7 +45,7 @@ class PaymentService:
         return new_payment
 
     @staticmethod
-    async def initiate_payment(db: AsyncSession, payment_id: str, patient_email: str) -> dict:
+    async def initiate_payment(db: AsyncSession, payment_id: str, patient_email: str, user_id: str) -> dict:
         """
         Initiates a Stripe Checkout Session.
         """
@@ -55,6 +55,10 @@ class PaymentService:
 
         if not payment:
             raise HTTPException(status_code=404, detail="Payment not found")
+
+        # Ownership check
+        if str(payment.patient_id) != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to initiate this payment")
 
         # 1. Check expiration
         if payment.expires_at and payment.expires_at < datetime.now(timezone.utc):

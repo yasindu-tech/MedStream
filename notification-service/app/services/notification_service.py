@@ -101,6 +101,18 @@ class NotificationService:
                 exc,
             )
         
+        # Enable enforcement of preferences (AS-03)
+        if prefs:
+            if template.channel == "email" and not prefs.email_enabled:
+                logger.info(f"Notification skipped: User {event_data.user_id} disabled email.")
+                return None
+            if template.channel == "sms" and not prefs.sms_enabled:
+                logger.info(f"Notification skipped: User {event_data.user_id} disabled SMS.")
+                return None
+            if template.channel == "in_app" and not prefs.in_app_enabled:
+                logger.info(f"Notification skipped: User {event_data.user_id} disabled in-app alerts.")
+                return None
+
         # 3. Render
         contact = _resolve_user_contact(str(event_data.user_id))
         if isinstance(event_data.payload, dict):
@@ -305,6 +317,24 @@ async def seed_default_templates():
             "channel": "email",
             "subject": "Reset Your Password",
             "body": "Click here to reset your password: {reset_link}"
+        },
+        {
+            "event_type": "account.suspended",
+            "channel": "email",
+            "subject": "Account Suspended",
+            "body": "Your account has been suspended. Reason: {reason}"
+        },
+        {
+            "event_type": "doctor.verification.approved",
+            "channel": "email",
+            "subject": "Doctor Verification Approved",
+            "body": "Congratulations {doctor_name}, your verification has been approved. {reason}"
+        },
+        {
+            "event_type": "doctor.verification.rejected",
+            "channel": "email",
+            "subject": "Doctor Verification Rejected",
+            "body": "Hello {doctor_name}, your verification request has been rejected. Reason: {reason}"
         },
         {
             "event_type": "prescription.available",

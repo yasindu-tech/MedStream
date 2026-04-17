@@ -1,8 +1,8 @@
 """SQLAlchemy models for the patientcare schema (appointment-service)."""
 import uuid
 from datetime import date, time
-from sqlalchemy import Boolean, Column, Integer, String, Date, Time, DateTime, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Column, Integer, String, Date, Time, DateTime, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.sql import func
 from app.database import Base
 

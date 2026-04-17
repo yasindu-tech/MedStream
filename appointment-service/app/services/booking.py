@@ -16,7 +16,7 @@ from app.services.telemedicine_client import provision_session_for_appointment
 
 
 # Statuses that occupy a slot (same as in internal.py)
-OCCUPIED_STATUSES = {"scheduled", "confirmed", "pending_payment", "in_progress", "arrived"}
+OCCUPIED_STATUSES = {"scheduled", "pending_doctor", "confirmed", "pending_payment", "in_progress", "arrived"}
 
 
 def book_appointment(
@@ -146,17 +146,16 @@ def book_appointment(
         db.flush()  # get patient_id without committing
 
     # ------------------------------------------------------------------
-    # Step 6: Create appointment
+    # Step 6: Create appointment request
     # ------------------------------------------------------------------
-    # Determine initial statuses based on consultation fee
     if consultation_fee and consultation_fee > 0:
-        appt_status = "pending_payment"
+        appt_status = "pending_doctor"
         payment_status = "pending"
-        message = f"Appointment created. Payment of Rs {consultation_fee:.2f} is required to confirm."
+        message = f"Appointment request submitted. Awaiting doctor approval and payment of Rs {consultation_fee:.2f}."
     else:
-        appt_status = "confirmed"
+        appt_status = "pending_doctor"
         payment_status = "not_required"
-        message = "Appointment confirmed successfully."
+        message = "Appointment request submitted. Awaiting doctor approval."
 
     appointment = Appointment(
         patient_id=existing_patient.patient_id,

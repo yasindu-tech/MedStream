@@ -1,6 +1,11 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.database import Base, engine
+from app.routers import router
+from app.routers.internal import router as internal_router
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="patient-service", version="0.1.0")
 
@@ -24,6 +29,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(router)
+app.include_router(internal_router, prefix="/internal")
 
 
 @app.get("/health", tags=["health"])

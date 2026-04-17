@@ -14,6 +14,7 @@ router = APIRouter(prefix="/inbox")
 async def get_notification_history(
     skip: int = 0, 
     limit: int = 20, 
+    unread_only: bool = False,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -22,9 +23,12 @@ async def get_notification_history(
         select(Notification)
         .where(Notification.user_id == user_id)
         .where(Notification.channel == "in_app")
-        .order_by(Notification.created_at.desc())
-        .offset(skip).limit(limit)
     )
+    
+    if unread_only:
+        stmt = stmt.where(Notification.status != "read")
+        
+    stmt = stmt.order_by(Notification.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(stmt)
     notifications = result.scalars().all()
     

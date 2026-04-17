@@ -103,6 +103,7 @@ services:
         condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@auth_db:5432/medstream_auth
+      PATIENT_SERVICE_URL: http://patient-service:8000
     ports:
       - "8001:8000"
     networks:
