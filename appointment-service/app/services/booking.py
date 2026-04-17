@@ -281,6 +281,7 @@ def _parse_time(value: str) -> time:
 def _validate_slot_with_doctor_service(request: BookAppointmentRequest) -> dict:
     """Call doctor-service to validate the slot is bookable."""
     url = f"{settings.DOCTOR_SERVICE_URL}/internal/doctors/{request.doctor_id}/validate-slot"
+    headers = {"X-Internal-Service-Token": settings.INTERNAL_SERVICE_TOKEN}
     params = {
         "clinic_id": str(request.clinic_id),
         "date": request.date.isoformat(),
@@ -290,7 +291,7 @@ def _validate_slot_with_doctor_service(request: BookAppointmentRequest) -> dict:
 
     try:
         with httpx.Client(timeout=10.0) as client:
-            response = client.get(url, params=params)
+            response = client.get(url, params=params, headers=headers)
             response.raise_for_status()
             return response.json()
     except httpx.HTTPStatusError as exc:
