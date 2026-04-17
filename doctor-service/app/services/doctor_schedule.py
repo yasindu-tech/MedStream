@@ -380,6 +380,7 @@ def update_doctor_availability(
         new_value=new_record,
         changed_by=None,
     )
+    db.commit()
 
     logger.info(
         "Doctor availability updated: doctor=%s availability=%s",
@@ -426,6 +427,7 @@ def delete_doctor_availability(db: Session, doctor_id: UUID, availability_id: UU
         new_value={"status": "inactive"},
         changed_by=None,
     )
+    db.commit()
 
     logger.info(
         "Doctor availability deactivated: doctor=%s availability=%s",
