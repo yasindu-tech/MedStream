@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 from app.routers import payments_router, refunds_router, summaries_router
+from app.routers.internal import router as internal_router
 from app.config import settings
 from decimal import Decimal
 import logging
@@ -53,6 +54,7 @@ app.add_middleware(
 app.include_router(payments_router,  prefix="/api/payments", tags=["payments"])
 app.include_router(refunds_router,   prefix="/api/payments", tags=["refunds"])
 app.include_router(summaries_router, prefix="/api/payments", tags=["summaries"])
+app.include_router(internal_router, prefix="/internal")
 
 @app.get("/health")
 async def health():
