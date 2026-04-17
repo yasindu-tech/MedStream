@@ -87,7 +87,8 @@ class RefundService:
                 "refund_amount": float(refund.refund_amount),
                 "currency": payment.currency,
                 "reason": refund.reason
-            }
+            },
+            channels=["email", "in_app"],
         )
         
         return refund

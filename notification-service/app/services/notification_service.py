@@ -101,18 +101,6 @@ class NotificationService:
                 exc,
             )
         
-        # Enable enforcement of preferences (AS-03)
-        if prefs:
-            if template.channel == "email" and not prefs.email_enabled:
-                logger.info(f"Notification skipped: User {event_data.user_id} disabled email.")
-                return None
-            if template.channel == "sms" and not prefs.sms_enabled:
-                logger.info(f"Notification skipped: User {event_data.user_id} disabled SMS.")
-                return None
-            if template.channel == "in_app" and not prefs.in_app_enabled:
-                logger.info(f"Notification skipped: User {event_data.user_id} disabled in-app alerts.")
-                return None
-
         # 3. Render
         contact = _resolve_user_contact(str(event_data.user_id))
         if isinstance(event_data.payload, dict):
@@ -131,6 +119,11 @@ class NotificationService:
         ]
 
         if not channels_to_send:
+            logger.info(
+                "Notification skipped: all requested channels are disabled for user %s (event=%s).",
+                event_data.user_id,
+                event_data.event_type,
+            )
             return None
 
         # 4. Save one notification row per requested channel.
@@ -307,10 +300,58 @@ async def seed_default_templates():
             "body": "Hello {patient_name}, your appointment with {doctor_name} has been rescheduled to {date} at {time}."
         },
         {
-            "event_type": "clinic.admin.onboarding",
-            "channel": "email",
-            "subject": "Your clinic account is ready",
-            "body": "Hello,\n\nYour clinic \"{clinic_name}\" account has been created successfully.\n\nLogin email: {login_email}\nTemporary password: {temporary_password}\nLogin here: {login_url}\n\nPlease sign in and reset your password immediately.\n"
+            "event_type": "appointment.accepted",
+            "channel": "in_app",
+            "subject": "Appointment Accepted",
+            "body": "Your appointment with {doctor_name} on {date} at {start_time} has been accepted."
+        },
+        {
+            "event_type": "appointment.rejected",
+            "channel": "in_app",
+            "subject": "Appointment Rejected",
+            "body": "Your appointment with {doctor_name} on {date} at {start_time} was rejected."
+        },
+        {
+            "event_type": "appointment.arrived",
+            "channel": "in_app",
+            "subject": "Appointment Arrival Confirmed",
+            "body": "Your arrival for appointment {appointment_id} has been recorded."
+        },
+        {
+            "event_type": "appointment.completed",
+            "channel": "in_app",
+            "subject": "Appointment Completed",
+            "body": "Your appointment with {doctor_name} has been marked as completed."
+        },
+        {
+            "event_type": "appointment.no_show",
+            "channel": "in_app",
+            "subject": "Appointment Marked No-Show",
+            "body": "Your appointment on {date} at {start_time} was marked as no-show."
+        },
+        {
+            "event_type": "appointment.technical_failure",
+            "channel": "in_app",
+            "subject": "Technical Failure Reported",
+            "body": "A technical issue was reported for your appointment. Please review details in the app."
+        },
+        {
+            "event_type": "workflow.prescription.trigger",
+            "channel": "in_app",
+            "subject": "Prescription Workflow Started",
+            "body": "Prescription generation has been triggered for appointment {appointment_id}."
+        },
+        {
+            "event_type": "workflow.followup.trigger",
+            "channel": "in_app",
+            "subject": "Follow-up Workflow Started",
+            "body": "Follow-up workflow has started for appointment {appointment_id}."
+        },
+        {
+            "event_type": "workflow.reschedule.recommendation",
+            "channel": "in_app",
+            "subject": "Reschedule Recommended",
+            "body": "A reschedule has been recommended for appointment {appointment_id}."
         },
         {
             "event_type": "account.verification",
@@ -343,6 +384,24 @@ async def seed_default_templates():
             "body": "Hello {doctor_name}, your verification request has been rejected. Reason: {reason}"
         },
         {
+            "event_type": "doctor.verification.pending",
+            "channel": "in_app",
+            "subject": "Doctor Verification Pending",
+            "body": "Your verification request is under review. We will notify you once it is processed."
+        },
+        {
+            "event_type": "doctor.profile.created",
+            "channel": "in_app",
+            "subject": "Doctor Profile Created",
+            "body": "Your doctor profile was created successfully and is now pending verification."
+        },
+        {
+            "event_type": "doctor.profile.updated",
+            "channel": "in_app",
+            "subject": "Doctor Profile Updated",
+            "body": "Your doctor profile details were updated successfully."
+        },
+        {
             "event_type": "prescription.available",
             "channel": "in_app",
             "subject": "New Prescription Available",
@@ -365,6 +424,36 @@ async def seed_default_templates():
             "channel": "email",
             "subject": "Refund Processed",
             "body": "A refund of {refund_amount} {currency} has been processed for your payment. Reason: {reason}"
+        },
+        {
+            "event_type": "patient.profile.updated",
+            "channel": "in_app",
+            "subject": "Profile Updated",
+            "body": "Your profile was updated successfully. Changed fields: {updated_fields}."
+        },
+        {
+            "event_type": "patient.medical_info.updated",
+            "channel": "in_app",
+            "subject": "Medical Information Updated",
+            "body": "Your {section} entry '{item_name}' was {action}."
+        },
+        {
+            "event_type": "patient.report.uploaded",
+            "channel": "in_app",
+            "subject": "Medical Report Uploaded",
+            "body": "Your report '{file_name}' ({document_type}) was uploaded successfully."
+        },
+        {
+            "event_type": "patient.report.updated",
+            "channel": "in_app",
+            "subject": "Medical Report Updated",
+            "body": "Your report '{file_name}' metadata was updated."
+        },
+        {
+            "event_type": "patient.report.deleted",
+            "channel": "in_app",
+            "subject": "Medical Report Deleted",
+            "body": "Your report '{file_name}' ({document_type}) was removed."
         }
     ]
 

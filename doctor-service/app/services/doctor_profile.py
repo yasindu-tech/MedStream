@@ -482,6 +482,15 @@ def update_doctor_profile(
     db.commit()
     db.refresh(doctor)
     logger.info("Doctor profile updated: %s (%s)", doctor.full_name, doctor.doctor_id)
+    if doctor.user_id:
+        send_notification_event(
+            event_type="doctor.profile.updated",
+            user_id=str(doctor.user_id),
+            payload={
+                "doctor_name": doctor.full_name,
+                "status": "Your doctor profile details were updated successfully.",
+            },
+        )
     publish_doctor_event(
         event_type="doctor.profile.updated",
         payload={

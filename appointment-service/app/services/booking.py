@@ -266,7 +266,7 @@ def _emit_booking_notification_event(
             "time": appointment.start_time.strftime("%H:%M"),
             "phone": patient_phone,
         },
-        "channels": ["sms", "email"],
+        "channels": ["sms", "email", "in_app"],
         "priority": "normal",
     }
 

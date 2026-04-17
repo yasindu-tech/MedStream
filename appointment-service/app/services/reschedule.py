@@ -265,7 +265,7 @@ def _emit_reschedule_notification_event(*, db: Session, appointment: Appointment
             "status": appointment.status,
             "phone": patient.phone,
         },
-        "channels": ["sms", "email"],
+        "channels": ["sms", "email", "in_app"],
         "priority": "normal",
     }
 

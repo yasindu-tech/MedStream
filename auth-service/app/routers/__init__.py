@@ -59,6 +59,7 @@ def me(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="User not found")
     return {
         "id": db_user.id,
+        "full_name": db_user.full_name,
         "email": db_user.email,
         "phone": db_user.phone,
         "is_verified": db_user.is_verified,

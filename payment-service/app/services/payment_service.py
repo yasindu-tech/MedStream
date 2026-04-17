@@ -228,7 +228,8 @@ class PaymentService:
                 "currency": payment.currency,
                 "transaction_reference": transaction_id,
                 "appointment_id": str(payment.appointment_id)
-            }
+            },
+            channels=["email", "in_app"],
         )
         
         # Notify appointment booked (final confirmation)
@@ -238,7 +239,8 @@ class PaymentService:
             payload={
                 "appointment_id": str(payment.appointment_id),
                 "status": "confirmed"
-            }
+            },
+            channels=["email", "in_app"],
         )
 
     @staticmethod
@@ -269,7 +271,8 @@ class PaymentService:
                 "reason": reason,
                 "retry_count": payment.retry_count,
                 "retries_remaining": payment.max_retries - payment.retry_count
-            }
+            },
+            channels=["email", "in_app"],
         )
 
     @staticmethod
