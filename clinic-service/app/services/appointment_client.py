@@ -1,3 +1,5 @@
+from datetime import date
+from typing import Optional
 from uuid import UUID
 
 import httpx
@@ -77,6 +79,48 @@ def get_clinic_operational_dashboard(clinic_id: UUID) -> dict:
     try:
         with httpx.Client(timeout=10.0) as client:
             response = client.get(url)
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Appointment service unavailable: {str(exc)}",
+        )
+
+    if response.status_code == status.HTTP_200_OK:
+        try:
+            return response.json()
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Appointment service returned invalid JSON.",
+            )
+
+    detail = response.text
+    raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=f"Appointment service returned unexpected status: {response.status_code} - {detail}",
+    )
+
+
+def get_clinic_appointments(
+    clinic_id: UUID,
+    page: int = 1,
+    size: int = 20,
+    target_date: date | None = None,
+    status_filter: str | None = None,
+    consultation_type: str | None = None,
+) -> dict:
+    url = f"{settings.APPOINTMENT_SERVICE_URL}/internal/clinics/{clinic_id}/appointments"
+    params: dict[str, str | int] = {"page": page, "size": size}
+    if target_date:
+        params["date"] = target_date.isoformat()
+    if status_filter:
+        params["status"] = status_filter
+    if consultation_type:
+        params["consultation_type"] = consultation_type
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(url, params=params)
     except httpx.RequestError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

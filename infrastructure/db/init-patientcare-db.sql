@@ -16,6 +16,9 @@ GRANT CONNECT ON DATABASE medstream_patientcare TO dev_user;
 
 CREATE SCHEMA IF NOT EXISTS patientcare;
 GRANT ALL ON SCHEMA patientcare TO dev_user;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA patientcare TO dev_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA patientcare TO dev_user;
+GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA patientcare TO dev_user;
 
 CREATE TABLE IF NOT EXISTS patientcare.patients (
     patient_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
