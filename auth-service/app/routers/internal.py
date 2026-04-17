@@ -48,12 +48,6 @@ class UserStatusResponse(BaseModel):
     account_status: str
 
 
-class UserStatusResponse(BaseModel):
-    id: UUID
-    roles: List[str]
-    account_status: str
-
-
 def require_internal_service_auth(x_internal_auth: Optional[str] = Header(default=None)) -> None:
     expected_token = os.getenv("INTERNAL_API_TOKEN")
     if not expected_token:
