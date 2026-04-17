@@ -202,11 +202,6 @@ services:
         condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://dev_user:dev_password@finance_db:5432/medstream_finance
-      STRIPE_API_KEY: ${STRIPE_API_KEY:-}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
-      STRIPE_SUCCESS_URL: http://localhost:5173/payment/success?session_id={CHECKOUT_SESSION_ID}
-      STRIPE_CANCEL_URL: http://localhost:5173/payment/cancel
-      ENABLE_STRIPE_MOCK: ${ENABLE_STRIPE_MOCK:-false}
       JWT_SECRET: ${SECRET_KEY:-your-super-secret-key-change-in-production}
       JWT_ALGORITHM: HS256
       NOTIFICATION_SERVICE_URL: http://notification-service:8000
