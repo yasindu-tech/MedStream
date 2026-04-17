@@ -87,3 +87,38 @@ class CreateClinicStaffResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AvailableDoctorResponse(BaseModel):
+    doctor_id: UUID
+    full_name: str
+    medical_registration_no: str | None = None
+    specialization: str | None = None
+    consultation_mode: str | None = None
+    consultation_fee: float | None = None
+    verification_status: str
+    status: str
+
+    class Config:
+        from_attributes = True
+
+
+class DoctorAssignmentRequest(BaseModel):
+    doctor_id: UUID
+
+
+class ClinicDoctorResponse(BaseModel):
+    assignment_id: UUID
+    doctor_id: UUID
+    clinic_id: UUID
+    full_name: str
+    medical_registration_no: str | None = None
+    specialization: str | None = None
+    consultation_mode: str | None = None
+    consultation_fee: float | None = None
+    verification_status: str
+    doctor_status: str
+    assignment_status: str
+
+    class Config:
+        from_attributes = True

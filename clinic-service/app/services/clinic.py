@@ -12,9 +12,17 @@ from app.models import (
     ClinicStatusHistory,
     Doctor,
     DoctorClinicAssignment,
+    DoctorAvailability,
 )
-from app.schemas import CreateClinicRequest, CreateClinicStaffRequest, UpdateClinicStaffRequest
-from app.services.appointment_client import get_clinic_future_appointments_count
+from app.schemas import (
+    CreateClinicRequest,
+    CreateClinicStaffRequest,
+    UpdateClinicStaffRequest,
+)
+from app.services.appointment_client import (
+    get_clinic_future_appointments_count,
+    get_doctor_future_appointments_count,
+)
 from app.services.auth_client import (
     deactivate_clinic_admin_user,
     deactivate_clinic_staff_user,
@@ -46,6 +54,212 @@ def get_clinic_by_id(db: Session, clinic_id: str | None) -> Clinic | None:
     if not clinic_id:
         return None
     return db.query(Clinic).filter(Clinic.clinic_id == clinic_id).first()
+
+
+def get_verified_doctor_by_id(db: Session, doctor_id: str) -> Doctor | None:
+    return (
+        db.query(Doctor)
+        .filter(
+            Doctor.doctor_id == doctor_id,
+            Doctor.status == "active",
+            Doctor.verification_status == "verified",
+        )
+        .first()
+    )
+
+
+def _doctor_has_active_schedule_at_clinic(db: Session, doctor_id: str, clinic_id: str) -> bool:
+    return (
+        db.query(DoctorAvailability)
+        .filter(
+            DoctorAvailability.doctor_id == doctor_id,
+            DoctorAvailability.clinic_id == clinic_id,
+            DoctorAvailability.status == "active",
+        )
+        .first()
+        is not None
+    )
+
+
+def _doctor_has_conflicting_schedule_elsewhere(db: Session, doctor_id: str, clinic_id: str) -> bool:
+    target_schedules = (
+        db.query(DoctorAvailability)
+        .filter(
+            DoctorAvailability.doctor_id == doctor_id,
+            DoctorAvailability.clinic_id == clinic_id,
+            DoctorAvailability.status == "active",
+        )
+        .all()
+    )
+    for schedule in target_schedules:
+        conflict = (
+            db.query(DoctorAvailability)
+            .filter(
+                DoctorAvailability.doctor_id == doctor_id,
+                DoctorAvailability.clinic_id != clinic_id,
+                DoctorAvailability.status == "active",
+                DoctorAvailability.day_of_week == schedule.day_of_week,
+                DoctorAvailability.start_time == schedule.start_time,
+                DoctorAvailability.end_time == schedule.end_time,
+                DoctorAvailability.consultation_type == schedule.consultation_type,
+            )
+            .first()
+        )
+        if conflict:
+            return True
+    return False
+
+
+def _get_clinic_assigned_doctor_ids(db: Session, clinic_id: str) -> list[str]:
+    return [
+        str(row.doctor_id)
+        for row in db.query(DoctorClinicAssignment.doctor_id)
+        .filter(
+            DoctorClinicAssignment.clinic_id == clinic_id,
+            DoctorClinicAssignment.status == "active",
+        )
+        .all()
+    ]
+
+
+def list_available_doctors_for_assignment(db: Session, clinic_id: str, specialty: str | None = None) -> list[Doctor]:
+    clinic = get_clinic_by_id(db, clinic_id)
+    if not clinic:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clinic not found.")
+    if clinic.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Doctors cannot be assigned to an inactive clinic.",
+        )
+
+    assigned_doctor_ids = _get_clinic_assigned_doctor_ids(db, clinic_id)
+    query = (
+        db.query(Doctor)
+        .join(
+            DoctorAvailability,
+            DoctorAvailability.doctor_id == Doctor.doctor_id,
+        )
+        .filter(
+            Doctor.status == "active",
+            Doctor.verification_status == "verified",
+            DoctorAvailability.clinic_id == clinic_id,
+            DoctorAvailability.status == "active",
+        )
+        .distinct()
+        .order_by(Doctor.full_name.asc())
+    )
+    if specialty:
+        query = query.filter(Doctor.specialization.ilike(f"%{specialty}%"))
+    if assigned_doctor_ids:
+        query = query.filter(~Doctor.doctor_id.in_(assigned_doctor_ids))
+    return query.all()
+
+
+def list_clinic_doctor_assignments(db: Session, clinic_id: str) -> list[DoctorClinicAssignment]:
+    return (
+        db.query(DoctorClinicAssignment)
+        .filter(
+            DoctorClinicAssignment.clinic_id == clinic_id,
+            DoctorClinicAssignment.status == "active",
+        )
+        .order_by(DoctorClinicAssignment.assignment_id.asc())
+        .all()
+    )
+
+
+def get_clinic_doctor_assignment(db: Session, clinic_id: str, doctor_id: str) -> DoctorClinicAssignment | None:
+    return (
+        db.query(DoctorClinicAssignment)
+        .filter(
+            DoctorClinicAssignment.clinic_id == clinic_id,
+            DoctorClinicAssignment.doctor_id == doctor_id,
+        )
+        .first()
+    )
+
+
+def create_clinic_doctor_assignment(db: Session, clinic_id: str, doctor_id: str) -> DoctorClinicAssignment:
+    clinic = get_clinic_by_id(db, clinic_id)
+    if not clinic:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clinic not found.")
+    if clinic.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Doctors can only be assigned to active clinics.",
+        )
+
+    doctor = get_verified_doctor_by_id(db, doctor_id)
+    if not doctor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Doctor not found, inactive, or unverified.",
+        )
+
+    if not _doctor_has_active_schedule_at_clinic(db, doctor_id, clinic_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Doctor has no active schedule for this clinic.",
+        )
+
+    if _doctor_has_conflicting_schedule_elsewhere(db, doctor_id, clinic_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Doctor already has the same schedule slot at another clinic.",
+        )
+
+    existing_assignment = get_clinic_doctor_assignment(db, clinic_id, doctor_id)
+    if existing_assignment is not None:
+        if existing_assignment.status == "active":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Doctor is already assigned to this clinic.",
+            )
+        existing_assignment.status = "active"
+        db.add(existing_assignment)
+        db.commit()
+        db.refresh(existing_assignment)
+        return existing_assignment
+
+    assignment = DoctorClinicAssignment(
+        doctor_id=doctor.doctor_id,
+        clinic_id=clinic.clinic_id,
+        status="active",
+    )
+    db.add(assignment)
+    db.commit()
+    db.refresh(assignment)
+    return assignment
+
+
+def remove_clinic_doctor_assignment(
+    db: Session,
+    clinic_id: str,
+    doctor_id: str,
+) -> DoctorClinicAssignment:
+    assignment = get_clinic_doctor_assignment(db, clinic_id, doctor_id)
+    if not assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Doctor assignment not found for this clinic.",
+        )
+    if assignment.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Doctor assignment is already inactive.",
+        )
+
+    future_count = get_doctor_future_appointments_count(doctor_id, clinic_id)
+    if future_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Doctor cannot be removed because there are upcoming appointments.",
+        )
+
+    assignment.status = "inactive"
+    db.add(assignment)
+    db.commit()
+    db.refresh(assignment)
+    return assignment
 
 
 def _log_clinic_status_change(
