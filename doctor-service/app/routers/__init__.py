@@ -13,9 +13,26 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Doctor
-from app.schemas import DoctorSearchResponse, DoctorProfileResponse, SlotValidationResponse, DoctorIdResponse
+from app.schemas import (
+    DoctorSearchResponse,
+    DoctorProfileResponse,
+    SlotValidationResponse,
+    DoctorIdResponse,
+    PendingDoctorListResponse,
+    PendingDoctorItem,
+    DoctorVerificationDetailsResponse,
+    DoctorVerificationActionRequest,
+    DoctorSuspendRequest,
+    DoctorVerificationActionResponse,
+)
 from app.services.doctor_search import search_doctors
 from app.services.doctor_profile import get_doctor_profile
+from app.services.doctor_verification import (
+    get_doctor_verification_documents,
+    list_pending_doctors,
+    review_doctor_verification,
+    suspend_doctor_profile,
+)
 from app.services.slot_validator import validate_slot
 
 router = APIRouter(tags=["internal"])
@@ -78,6 +95,95 @@ def internal_doctor_profile(
             detail="Doctor not found, inactive, or unverified",
         )
     return profile
+
+
+# ---------------------------------------------------------------------------
+# AS-04: Pending verification
+# ---------------------------------------------------------------------------
+
+@router.get("/doctors/pending", response_model=PendingDoctorListResponse)
+def internal_list_pending_doctors(
+    db: Session = Depends(get_db),
+) -> PendingDoctorListResponse:
+    pending = list_pending_doctors(db)
+    items = [
+        PendingDoctorItem(
+            doctor_id=doctor.doctor_id,
+            full_name=doctor.full_name,
+            specialization=doctor.specialization,
+            consultation_mode=doctor.consultation_mode,
+            medical_registration_no=doctor.medical_registration_no,
+            verification_status=doctor.verification_status,
+            status=doctor.status,
+            has_documents=bool(doctor.verification_documents),
+            missing_documents=not bool(doctor.verification_documents),
+        )
+        for doctor in pending
+    ]
+    return PendingDoctorListResponse(results=items, total=len(items))
+
+
+@router.get("/doctors/{doctor_id}/verification-documents", response_model=DoctorVerificationDetailsResponse)
+def internal_doctor_verification_documents(
+    doctor_id: UUID,
+    db: Session = Depends(get_db),
+) -> DoctorVerificationDetailsResponse:
+    doctor = get_doctor_verification_documents(db, doctor_id)
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found.")
+
+    documents = doctor.verification_documents or []
+    return DoctorVerificationDetailsResponse(
+        doctor_id=doctor.doctor_id,
+        full_name=doctor.full_name,
+        medical_registration_no=doctor.medical_registration_no,
+        verification_status=doctor.verification_status,
+        status=doctor.status,
+        verification_documents=[
+            {
+                "name": doc.get("name", "document"),
+                "url": doc.get("url", ""),
+                "uploaded_at": doc.get("uploaded_at"),
+                "status": doc.get("status"),
+            }
+            for doc in documents
+        ],
+        missing_documents=not bool(documents),
+        verification_rejection_reason=doctor.verification_rejection_reason,
+    )
+
+
+@router.post("/doctors/{doctor_id}/verification", response_model=DoctorVerificationActionResponse)
+def internal_review_doctor_verification(
+    doctor_id: UUID,
+    payload: DoctorVerificationActionRequest,
+    db: Session = Depends(get_db),
+) -> DoctorVerificationActionResponse:
+    doctor = review_doctor_verification(
+        db=db,
+        doctor_id=doctor_id,
+        action=payload.action,
+        reason=payload.reason,
+    )
+    return DoctorVerificationActionResponse(
+        doctor_id=doctor.doctor_id,
+        verification_status=doctor.verification_status,
+        verification_rejection_reason=doctor.verification_rejection_reason,
+    )
+
+
+@router.post("/doctors/{doctor_id}/suspend", response_model=DoctorVerificationActionResponse)
+def internal_suspend_doctor(
+    doctor_id: UUID,
+    payload: DoctorSuspendRequest,
+    db: Session = Depends(get_db),
+) -> DoctorVerificationActionResponse:
+    doctor = suspend_doctor_profile(db=db, doctor_id=doctor_id, reason=payload.reason)
+    return DoctorVerificationActionResponse(
+        doctor_id=doctor.doctor_id,
+        verification_status=doctor.verification_status,
+        verification_rejection_reason=doctor.verification_rejection_reason,
+    )
 
 
 # ---------------------------------------------------------------------------

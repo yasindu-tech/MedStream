@@ -62,6 +62,7 @@ def assign_doctor_to_clinic_endpoint(
         db=db,
         clinic_id=str(clinic_id),
         doctor_id=str(payload.doctor_id),
+        changed_by=_user["sub"],
     )
 
     doctor = db.query(Doctor).filter(Doctor.doctor_id == payload.doctor_id).first()
@@ -125,6 +126,7 @@ def remove_doctor_from_clinic_endpoint(
         db=db,
         clinic_id=str(clinic_id),
         doctor_id=str(doctor_id),
+        changed_by=_user["sub"],
     )
 
     doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()

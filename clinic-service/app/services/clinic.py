@@ -13,6 +13,7 @@ from app.models import (
     Doctor,
     DoctorClinicAssignment,
     DoctorAvailability,
+    DoctorAssignmentHistory,
 )
 from app.schemas import (
     CreateClinicRequest,
@@ -178,7 +179,7 @@ def get_clinic_doctor_assignment(db: Session, clinic_id: str, doctor_id: str) ->
     )
 
 
-def create_clinic_doctor_assignment(db: Session, clinic_id: str, doctor_id: str) -> DoctorClinicAssignment:
+def create_clinic_doctor_assignment(db: Session, clinic_id: str, doctor_id: str, changed_by: str | None = None) -> DoctorClinicAssignment:
     clinic = get_clinic_by_id(db, clinic_id)
     if not clinic:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clinic not found.")
@@ -215,6 +216,7 @@ def create_clinic_doctor_assignment(db: Session, clinic_id: str, doctor_id: str)
                 detail="Doctor is already assigned to this clinic.",
             )
         existing_assignment.status = "active"
+        _log_doctor_assignment(db, existing_assignment, action="assigned", changed_by=changed_by)
         db.add(existing_assignment)
         db.commit()
         db.refresh(existing_assignment)
@@ -226,6 +228,7 @@ def create_clinic_doctor_assignment(db: Session, clinic_id: str, doctor_id: str)
         status="active",
     )
     db.add(assignment)
+    _log_doctor_assignment(db, assignment, action="assigned", changed_by=changed_by)
     db.commit()
     db.refresh(assignment)
     return assignment
@@ -235,6 +238,7 @@ def remove_clinic_doctor_assignment(
     db: Session,
     clinic_id: str,
     doctor_id: str,
+    changed_by: str | None = None,
 ) -> DoctorClinicAssignment:
     assignment = get_clinic_doctor_assignment(db, clinic_id, doctor_id)
     if not assignment:
@@ -256,6 +260,7 @@ def remove_clinic_doctor_assignment(
         )
 
     assignment.status = "inactive"
+    _log_doctor_assignment(db, assignment, action="unassigned", changed_by=changed_by)
     db.add(assignment)
     db.commit()
     db.refresh(assignment)
@@ -273,6 +278,38 @@ def _log_clinic_status_change(
         clinic_id=clinic.clinic_id,
         old_status=clinic.status,
         new_status=new_status,
+        changed_by=changed_by,
+        reason=reason,
+    )
+    db.add(history)
+
+
+def _log_clinic_creation(
+    db: Session,
+    clinic: Clinic,
+    changed_by: str | None = None,
+) -> None:
+    history = ClinicStatusHistory(
+        clinic_id=clinic.clinic_id,
+        old_status=None,
+        new_status=clinic.status,
+        changed_by=changed_by,
+        reason="created",
+    )
+    db.add(history)
+
+
+def _log_doctor_assignment(
+    db: Session,
+    assignment: DoctorClinicAssignment,
+    action: str,
+    changed_by: str | None = None,
+    reason: str | None = None,
+) -> None:
+    history = DoctorAssignmentHistory(
+        doctor_id=assignment.doctor_id,
+        clinic_id=assignment.clinic_id,
+        action=action,
         changed_by=changed_by,
         reason=reason,
     )
@@ -407,7 +444,7 @@ def list_clinics(db: Session, active_only: bool = False) -> list[Clinic]:
     return query.all()
 
 
-def create_clinic(db: Session, payload: CreateClinicRequest) -> Clinic:
+def create_clinic(db: Session, payload: CreateClinicRequest, created_by: str | None = None) -> Clinic:
     if get_clinic_by_registration(db, payload.registration_no):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -449,6 +486,7 @@ def create_clinic(db: Session, payload: CreateClinicRequest) -> Clinic:
         status="pending",
     )
     db.add(onboarding)
+    _log_clinic_creation(db, clinic, created_by=created_by)
     db.commit()
     db.refresh(clinic)
 
