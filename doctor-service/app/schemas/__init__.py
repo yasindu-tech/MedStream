@@ -266,25 +266,6 @@ class DoctorVerificationActionResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# AS-02b: Profile history schema
-# ---------------------------------------------------------------------------
-
-class DoctorProfileHistoryItem(BaseModel):
-    history_id: UUID
-    field_name: str
-    old_value: Optional[str] = None
-    new_value: Optional[str] = None
-    changed_by: Optional[str] = None
-    reason: Optional[str] = None
-    changed_at: str
-
-
-class DoctorProfileHistoryListResponse(BaseModel):
-    results: List[DoctorProfileHistoryItem]
-    total: int
-
-
-# ---------------------------------------------------------------------------
 # AS-03: Slot validation response schema
 # ---------------------------------------------------------------------------
 
