@@ -6,6 +6,16 @@ from fastapi import HTTPException, status
 from app.config import settings
 
 
+def _internal_auth_headers() -> dict[str, str]:
+    token = settings.INTERNAL_API_TOKEN
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Internal service authentication token is not configured.",
+        )
+    return {"X-Internal-Auth": token}
+
+
 def register_clinic_admin_user(
     email: str,
     password: str,
@@ -23,7 +33,7 @@ def register_clinic_admin_user(
 
     try:
         with httpx.Client(timeout=10.0) as client:
-            response = client.post(url, json=payload)
+            response = client.post(url, json=payload, headers=_internal_auth_headers())
     except httpx.RequestError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -52,7 +62,7 @@ def deactivate_clinic_admin_user(user_id: str) -> None:
 
     try:
         with httpx.Client(timeout=10.0) as client:
-            response = client.post(url)
+            response = client.post(url, headers=_internal_auth_headers())
     except httpx.RequestError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -90,7 +100,7 @@ def register_clinic_staff_user(
 
     try:
         with httpx.Client(timeout=10.0) as client:
-            response = client.post(url, json=payload)
+            response = client.post(url, json=payload, headers=_internal_auth_headers())
     except httpx.RequestError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -119,7 +129,7 @@ def deactivate_clinic_staff_user(user_id: str) -> None:
 
     try:
         with httpx.Client(timeout=10.0) as client:
-            response = client.post(url)
+            response = client.post(url, headers=_internal_auth_headers())
     except httpx.RequestError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
