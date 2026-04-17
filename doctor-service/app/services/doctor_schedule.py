@@ -315,6 +315,17 @@ def update_doctor_availability(
 
     _ensure_no_pending_future_appointments(db, doctor_id, availability.clinic_id)
 
+    old_record = {
+        "clinic_id": str(availability.clinic_id),
+        "day_of_week": availability.day_of_week,
+        "date": availability.date.isoformat() if availability.date else None,
+        "start_time": availability.start_time,
+        "end_time": availability.end_time,
+        "slot_duration": availability.slot_duration,
+        "consultation_type": availability.consultation_type,
+        "status": availability.status,
+    }
+
     day_of_week = availability.day_of_week
     date_value = availability.date
     if payload.day_of_week and payload.date:
@@ -328,26 +339,6 @@ def update_doctor_availability(
     if payload.date is not None:
         date_value = _parse_date(payload.date)
         day_of_week = None
-
-    if payload.start_time is not None or payload.end_time is not None or payload.slot_duration is not None:
-        start_time = payload.start_time or availability.start_time
-        end_time = payload.end_time or availability.end_time
-        slot_duration = payload.slot_duration or availability.slot_duration
-        _validate_availability_window(start_time, end_time, slot_duration)
-        availability.start_time = start_time
-        availability.end_time = end_time
-        availability.slot_duration = slot_duration
-
-    old_record = {
-        "clinic_id": str(availability.clinic_id),
-        "day_of_week": availability.day_of_week,
-        "date": availability.date.isoformat() if availability.date else None,
-        "start_time": availability.start_time,
-        "end_time": availability.end_time,
-        "slot_duration": availability.slot_duration,
-        "consultation_type": availability.consultation_type,
-        "status": availability.status,
-    }
 
     availability.day_of_week = day_of_week
     availability.date = date_value
