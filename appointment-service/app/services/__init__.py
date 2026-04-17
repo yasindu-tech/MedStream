@@ -32,10 +32,11 @@ def search_doctors(
         params["clinic_id"] = str(clinic_id)
 
     url = f"{settings.DOCTOR_SERVICE_URL}/internal/doctors/search"
+    headers = {"X-Internal-Service-Token": settings.INTERNAL_SERVICE_TOKEN}
 
     try:
         with httpx.Client(timeout=10.0) as client:
-            response = client.get(url, params=params)
+            response = client.get(url, params=params, headers=headers)
             response.raise_for_status()
             return response.json()
     except httpx.HTTPStatusError as exc:
@@ -63,10 +64,11 @@ def get_doctor_profile(
         params["date"] = target_date.isoformat()
 
     url = f"{settings.DOCTOR_SERVICE_URL}/internal/doctors/{doctor_id}/profile"
+    headers = {"X-Internal-Service-Token": settings.INTERNAL_SERVICE_TOKEN}
 
     try:
         with httpx.Client(timeout=10.0) as client:
-            response = client.get(url, params=params)
+            response = client.get(url, params=params, headers=headers)
             if response.status_code == 404:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
