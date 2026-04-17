@@ -170,6 +170,13 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@patientcare_db:5432/medstream_patientcare
       APPOINTMENT_SERVICE_URL: http://appointment-service:8000
+      DOCTOR_SERVICE_URL: http://doctor-service:8000
+      TELEMEDICINE_PROVIDER: ${TELEMEDICINE_PROVIDER:-google}
+      MEETING_LINK_BASE_URL: ${MEETING_LINK_BASE_URL:-https://meet.medstream.local/s}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-http://localhost:8080/telemedicine/auth/google/callback}
+      GOOGLE_OAUTH_SCOPES: ${GOOGLE_OAUTH_SCOPES:-https://www.googleapis.com/auth/meetings.space.created}
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./telemedicine-service:/app
@@ -209,6 +216,15 @@ services:
         condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://dev_user:dev_password@communication_db:5432/medstream_communication
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@medstream.com}
+      TEXT_LK_API_TOKEN: ${TEXT_LK_API_TOKEN:-}
+      TEXT_LK_SENDER_ID: ${TEXT_LK_SENDER_ID:-TextLKDemo}
+      SECRET_KEY: ${SECRET_KEY:-your-super-secret-key-change-in-production}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-key-change-in-production}
     ports:
       - "8006:8000"
     networks:

@@ -12,6 +12,7 @@ from app.config import settings
 from app.models import Appointment, Patient
 from app.schemas import BookAppointmentRequest, BookAppointmentResponse
 from app.services.policy import resolve_effective_policy
+from app.services.telemedicine_client import provision_session_for_appointment
 
 
 # Statuses that occupy a slot (same as in internal.py)
@@ -176,6 +177,19 @@ def book_appointment(
     db.commit()
     db.refresh(appointment)
 
+    if appointment.appointment_type.lower() in {"telemedicine", "virtual"}:
+        provision_session_for_appointment(
+            appointment.appointment_id,
+            appointment.appointment_type,
+        )
+
+    _emit_booking_notification_event(
+        appointment=appointment,
+        patient_user_id=patient_id,
+        patient_name=existing_patient.full_name if existing_patient else "Patient",
+        patient_phone=existing_patient.phone if existing_patient else None,
+    )
+
     # ------------------------------------------------------------------
     # Step 5: TODO — Payment service integration
     # When payment is required (consultation_fee > 0):
@@ -206,6 +220,36 @@ def book_appointment(
         consultation_fee=consultation_fee,
         message=message,
     )
+
+
+def _emit_booking_notification_event(
+    *,
+    appointment: Appointment,
+    patient_user_id: str,
+    patient_name: str,
+    patient_phone: Optional[str],
+) -> None:
+    payload = {
+        "event_type": "appointment.booked",
+        "user_id": patient_user_id,
+        "payload": {
+            "appointment_id": str(appointment.appointment_id),
+            "patient_name": patient_name,
+            "doctor_name": appointment.doctor_name,
+            "date": appointment.appointment_date.isoformat(),
+            "time": appointment.start_time.strftime("%H:%M"),
+            "phone": patient_phone,
+        },
+        "channels": ["sms", "email"],
+        "priority": "normal",
+    }
+
+    try:
+        with httpx.Client(timeout=2.0) as client:
+            client.post(f"{settings.NOTIFICATION_SERVICE_URL}/api/notifications/events", json=payload)
+    except httpx.RequestError:
+        # Booking should fail-open if notification service is temporarily unavailable.
+        return
 
 
 def _parse_time(value: str) -> time:

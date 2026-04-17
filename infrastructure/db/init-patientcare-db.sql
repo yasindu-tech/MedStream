@@ -97,6 +97,9 @@ CREATE TABLE IF NOT EXISTS patientcare.appointments (
     completed_by varchar(100),
     no_show_at timestamptz,
     no_show_marked_by varchar(100),
+    technical_failure_at timestamptz,
+    technical_failure_reason text,
+    technical_failure_marked_by varchar(100),
     cancellation_reason text,
     cancelled_by varchar(30),
     rescheduled_from_date date,
@@ -114,6 +117,9 @@ ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS completed_at times
 ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS completed_by varchar(100);
 ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS no_show_at timestamptz;
 ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS no_show_marked_by varchar(100);
+ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS technical_failure_at timestamptz;
+ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS technical_failure_reason text;
+ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS technical_failure_marked_by varchar(100);
 ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS reschedule_count int NOT NULL DEFAULT 0;
 ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS policy_id uuid;
 
@@ -134,10 +140,37 @@ CREATE TABLE IF NOT EXISTS patientcare.telemedicine_sessions (
     provider_name varchar(100),
     meeting_link text,
     status varchar(30) NOT NULL DEFAULT 'scheduled',
+    session_version int NOT NULL DEFAULT 1,
+    token_version int NOT NULL DEFAULT 1,
     started_at timestamptz,
     ended_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT fk_telemed_appointment FOREIGN KEY (appointment_id) REFERENCES patientcare.appointments(appointment_id) ON DELETE CASCADE
+);
+
+ALTER TABLE patientcare.telemedicine_sessions ADD COLUMN IF NOT EXISTS session_version int NOT NULL DEFAULT 1;
+ALTER TABLE patientcare.telemedicine_sessions ADD COLUMN IF NOT EXISTS token_version int NOT NULL DEFAULT 1;
+
+CREATE TABLE IF NOT EXISTS patientcare.telemedicine_session_events (
+    event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id uuid NOT NULL,
+    event_type varchar(50) NOT NULL,
+    actor varchar(100),
+    details text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT fk_telemed_event_session FOREIGN KEY (session_id) REFERENCES patientcare.telemedicine_sessions(session_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS patientcare.google_oauth_integrations (
+    integration_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider varchar(50) NOT NULL UNIQUE,
+    account_email varchar(255),
+    refresh_token text NOT NULL,
+    scope text,
+    token_type varchar(50),
+    is_active int NOT NULL DEFAULT 1,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS patientcare.consultation_notes (
@@ -253,6 +286,7 @@ ON CONFLICT (policy_id) DO NOTHING;
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA patientcare TO dev_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA patientcare GRANT ALL ON TABLES TO dev_user;
+GRANT ALL PRIVILEGES ON TABLE patientcare.google_oauth_integrations TO dev_user;
 
 -- ============================================================
 -- Seed data: patients and connected care records
