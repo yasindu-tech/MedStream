@@ -1,7 +1,9 @@
+import os
+import secrets
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
@@ -40,7 +42,22 @@ class SuspendUserRequest(BaseModel):
     reason: Optional[str] = None
 
 
-router = APIRouter(tags=["internal"])
+def require_internal_service_auth(x_internal_auth: Optional[str] = Header(default=None)) -> None:
+    expected_token = os.getenv("INTERNAL_API_TOKEN")
+    if not expected_token:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Internal service authentication is not configured.",
+        )
+
+    if not x_internal_auth or not secrets.compare_digest(x_internal_auth, expected_token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized internal service request.",
+        )
+
+
+router = APIRouter(tags=["internal"], dependencies=[Depends(require_internal_service_auth)])
 
 
 @router.post("/clinic-admin", response_model=ClinicAdminOnboardingResponse, status_code=status.HTTP_201_CREATED)
