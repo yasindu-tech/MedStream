@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
@@ -119,6 +120,43 @@ class ClinicDoctorResponse(BaseModel):
     verification_status: str
     doctor_status: str
     assignment_status: str
+
+    class Config:
+        from_attributes = True
+
+
+class ClinicDashboardResponse(BaseModel):
+    clinic_id: UUID
+    total_appointments: int
+    active_doctors: int
+    completed_consultations: int
+    cancellations: int
+    warnings: list[str] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
+
+
+class PaymentSummaryResponse(BaseModel):
+    total_revenue: Decimal
+    total_refunded: Decimal
+    total_failed: Decimal
+    total_pending: Decimal
+    platform_commission_total: Decimal
+    payment_count: int
+    refund_count: int
+
+    class Config:
+        from_attributes = True
+
+
+class PlatformDashboardResponse(BaseModel):
+    total_clinics: int
+    active_doctors: int
+    active_patients: int
+    daily_bookings: int
+    payment_summary: PaymentSummaryResponse
+    warnings: list[str] = Field(default_factory=list)
 
     class Config:
         from_attributes = True

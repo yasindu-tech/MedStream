@@ -4,7 +4,7 @@ Provides booked slot data to doctor-service for slot computation.
 Not exposed through the nginx gateway.
 """
 from __future__ import annotations
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import List
 from uuid import UUID
 
@@ -189,6 +189,57 @@ def internal_get_doctor_pending_future_appointments(
     )
     count = pending_query.count()
     return {"pending_future_appointments": count}
+
+
+@router.get("/clinics/{clinic_id}/dashboard")
+def internal_get_clinic_dashboard(
+    clinic_id: UUID = Path(...),
+    db: Session = Depends(get_db),
+) -> dict:
+    today = datetime.utcnow().date()
+    base_query = db.query(Appointment).filter(
+        Appointment.clinic_id == clinic_id,
+        Appointment.appointment_date == today,
+    )
+    total_appointments = base_query.count()
+    completed_consultations = base_query.filter(Appointment.status == "completed").count()
+    cancellations = base_query.filter(Appointment.status == "cancelled").count()
+    return {
+        "total_appointments": total_appointments,
+        "completed_consultations": completed_consultations,
+        "cancellations": cancellations,
+    }
+
+
+@router.get("/platform/active-patients")
+def internal_get_active_patients(db: Session = Depends(get_db)) -> dict:
+    cutoff = (datetime.utcnow() - timedelta(days=30)).date()
+    active_statuses = {"scheduled", "confirmed", "in_progress", "arrived", "completed", "no_show"}
+    query = (
+        db.query(Appointment.patient_id)
+        .filter(
+            Appointment.appointment_date >= cutoff,
+            Appointment.status.in_(active_statuses),
+        )
+        .distinct()
+    )
+    return {"active_patients": query.count()}
+
+
+@router.get("/platform/daily-bookings")
+def internal_get_daily_bookings(
+    target_date: date | None = Query(None, description="Target date for daily bookings."),
+    db: Session = Depends(get_db),
+) -> dict:
+    booking_date = target_date or datetime.utcnow().date()
+    query = (
+        db.query(Appointment)
+        .filter(
+            Appointment.appointment_date == booking_date,
+            Appointment.status != "cancelled",
+        )
+    )
+    return {"daily_bookings": query.count()}
 
 
 @router.get("/policies/effective")
