@@ -1,5 +1,6 @@
 import logging
 import secrets
+from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -7,13 +8,19 @@ from app.models import (
     Clinic,
     ClinicAdmin,
     ClinicStaff,
+    ClinicStaffHistory,
     ClinicStatusHistory,
     Doctor,
     DoctorClinicAssignment,
 )
-from app.schemas import CreateClinicRequest
+from app.schemas import CreateClinicRequest, CreateClinicStaffRequest, UpdateClinicStaffRequest
 from app.services.appointment_client import get_clinic_future_appointments_count
-from app.services.auth_client import deactivate_clinic_admin_user, register_clinic_admin_user
+from app.services.auth_client import (
+    deactivate_clinic_admin_user,
+    deactivate_clinic_staff_user,
+    register_clinic_admin_user,
+    register_clinic_staff_user,
+)
 from app.services.notification_client import queue_clinic_admin_onboarding_email
 
 logger = logging.getLogger(__name__)
@@ -245,3 +252,155 @@ def create_clinic(db: Session, payload: CreateClinicRequest) -> Clinic:
         )
 
     return clinic
+
+
+def _log_clinic_staff_history(
+    db: Session,
+    staff: ClinicStaff,
+    action: str,
+    changed_by: str | None = None,
+) -> None:
+    history = ClinicStaffHistory(
+        staff_id=staff.staff_id,
+        clinic_id=staff.clinic_id,
+        user_id=staff.user_id,
+        staff_email=staff.staff_email,
+        staff_name=staff.staff_name,
+        staff_phone=staff.staff_phone,
+        staff_role=staff.staff_role,
+        status=staff.status,
+        action=action,
+        changed_by=changed_by,
+    )
+    db.add(history)
+
+
+def get_clinic_admin_clinic_id(db: Session, user_id: str) -> str | None:
+    admin = (
+        db.query(ClinicAdmin)
+        .filter(ClinicAdmin.user_id == user_id, ClinicAdmin.status == "active")
+        .first()
+    )
+    return str(admin.clinic_id) if admin else None
+
+
+def get_clinic_staff_by_id(db: Session, clinic_id: str, staff_id: str) -> ClinicStaff | None:
+    return (
+        db.query(ClinicStaff)
+        .filter(
+            ClinicStaff.clinic_id == clinic_id,
+            ClinicStaff.staff_id == staff_id,
+        )
+        .first()
+    )
+
+
+def list_clinic_staff(db: Session, clinic_id: str, active_only: bool = True) -> list[ClinicStaff]:
+    query = db.query(ClinicStaff).filter(ClinicStaff.clinic_id == clinic_id)
+    if active_only:
+        query = query.filter(ClinicStaff.status == "active")
+    return query.order_by(ClinicStaff.created_at.desc()).all()
+
+
+def create_clinic_staff(
+    db: Session,
+    clinic_id: str,
+    payload: CreateClinicStaffRequest,
+    created_by: str | None = None,
+) -> dict:
+    clinic = get_clinic_by_id(db, clinic_id)
+    if not clinic:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clinic not found.")
+    if clinic.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Staff cannot be added to an inactive clinic.",
+        )
+
+    temp_password = _generate_temporary_password()
+    try:
+        auth_user = register_clinic_staff_user(
+            email=payload.email,
+            password=temp_password,
+            phone=payload.phone,
+        )
+    except HTTPException:
+        raise
+
+    staff = ClinicStaff(
+        clinic_id=clinic.clinic_id,
+        user_id=auth_user["id"],
+        staff_email=auth_user["email"],
+        staff_name=payload.name,
+        staff_phone=payload.phone,
+        staff_role=payload.role,
+        status="active",
+    )
+    db.add(staff)
+    db.flush()
+    _log_clinic_staff_history(db, staff, action="created", changed_by=created_by)
+    db.commit()
+    db.refresh(staff)
+
+    return {"staff": staff, "temporary_password": temp_password}
+
+
+def update_clinic_staff(
+    db: Session,
+    clinic_id: str,
+    staff_id: str,
+    payload: UpdateClinicStaffRequest,
+    changed_by: str | None = None,
+) -> ClinicStaff:
+    staff = get_clinic_staff_by_id(db, clinic_id, staff_id)
+    if not staff or staff.status != "active":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clinic staff not found.")
+
+    changes = False
+    if payload.name is not None:
+        staff.staff_name = payload.name
+        changes = True
+    if payload.phone is not None:
+        staff.staff_phone = payload.phone
+        changes = True
+    if payload.role is not None:
+        staff.staff_role = payload.role
+        changes = True
+
+    if not changes:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid updates provided.")
+
+    staff.updated_at = datetime.utcnow()
+    staff.updated_by = changed_by
+    _log_clinic_staff_history(db, staff, action="updated", changed_by=changed_by)
+    db.commit()
+    db.refresh(staff)
+    return staff
+
+
+def remove_clinic_staff(
+    db: Session,
+    clinic_id: str,
+    staff_id: str,
+    changed_by: str | None = None,
+) -> ClinicStaff:
+    staff = get_clinic_staff_by_id(db, clinic_id, staff_id)
+    if not staff:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clinic staff not found.")
+    if staff.status != "active":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Clinic staff is already inactive.")
+
+    staff.status = "inactive"
+    staff.updated_at = datetime.utcnow()
+    staff.updated_by = changed_by
+    _log_clinic_staff_history(db, staff, action="removed", changed_by=changed_by)
+
+    try:
+        deactivate_clinic_staff_user(str(staff.user_id))
+    except HTTPException:
+        db.rollback()
+        raise
+
+    db.commit()
+    db.refresh(staff)
+    return staff

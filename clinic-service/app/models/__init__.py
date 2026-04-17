@@ -48,9 +48,32 @@ class ClinicStaff(Base):
         nullable=False,
     )
     user_id = Column(UUID(as_uuid=True), nullable=True)
+    staff_email = Column(String(255), nullable=True, index=True)
+    staff_name = Column(String(255), nullable=True)
+    staff_phone = Column(String(30), nullable=True)
     staff_role = Column(String(100), nullable=True)
     status = Column(String(30), nullable=False, default="active")
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=True)
+    updated_by = Column(String(100), nullable=True)
+
+
+class ClinicStaffHistory(Base):
+    __tablename__ = "clinic_staff_history"
+    __table_args__ = {"schema": "admin"}
+
+    history_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    staff_id = Column(UUID(as_uuid=True), nullable=False)
+    clinic_id = Column(UUID(as_uuid=True), nullable=False)
+    user_id = Column(UUID(as_uuid=True), nullable=True)
+    staff_email = Column(String(255), nullable=True)
+    staff_name = Column(String(255), nullable=True)
+    staff_phone = Column(String(30), nullable=True)
+    staff_role = Column(String(100), nullable=True)
+    status = Column(String(30), nullable=False)
+    action = Column(String(50), nullable=False)
+    changed_by = Column(String(100), nullable=True)
+    changed_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
 class Doctor(Base):

@@ -54,11 +54,31 @@ CREATE TABLE IF NOT EXISTS admin.clinic_staff (
     staff_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     clinic_id uuid NOT NULL,
     user_id uuid,
+    staff_email varchar(255),
+    staff_name varchar(255),
+    staff_phone varchar(30),
     staff_role varchar(100),
     status varchar(30) NOT NULL DEFAULT 'active',
     created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz,
+    updated_by varchar(100),
     CONSTRAINT fk_clinic_staff_clinic
         FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS admin.clinic_staff_history (
+    history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    staff_id uuid NOT NULL,
+    clinic_id uuid NOT NULL,
+    user_id uuid,
+    staff_email varchar(255),
+    staff_name varchar(255),
+    staff_phone varchar(30),
+    staff_role varchar(100),
+    status varchar(30) NOT NULL,
+    action varchar(50) NOT NULL,
+    changed_by varchar(100),
+    changed_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS admin.clinic_status_history (

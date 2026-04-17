@@ -20,6 +20,17 @@ class ClinicAdminOnboardingResponse(BaseModel):
     email: EmailStr
 
 
+class ClinicStaffOnboardingRequest(BaseModel):
+    email: EmailStr
+    password: str
+    phone: Optional[str] = None
+
+
+class ClinicStaffOnboardingResponse(BaseModel):
+    id: str
+    email: EmailStr
+
+
 router = APIRouter(tags=["internal"])
 
 
@@ -37,6 +48,26 @@ def create_clinic_admin_user(data: ClinicAdminOnboardingRequest, db: Session = D
 
 @router.post("/clinic-admin/{user_id}/deactivate", status_code=status.HTTP_200_OK)
 def deactivate_clinic_admin_user(user_id: UUID, db: Session = Depends(get_db)):
+    from app.services import deactivate_user
+
+    deactivate_user(user_id, db)
+    return {"success": True}
+
+
+@router.post("/clinic-staff", response_model=ClinicStaffOnboardingResponse, status_code=status.HTTP_201_CREATED)
+def create_clinic_staff_user(data: ClinicStaffOnboardingRequest, db: Session = Depends(get_db)):
+    user = create_verified_user(
+        email=data.email,
+        password=data.password,
+        phone=data.phone,
+        role_name="clinic_staff",
+        db=db,
+    )
+    return {"id": str(user["id"]), "email": user["email"]}
+
+
+@router.post("/clinic-staff/{user_id}/deactivate", status_code=status.HTTP_200_OK)
+def deactivate_clinic_staff_user(user_id: UUID, db: Session = Depends(get_db)):
     from app.services import deactivate_user
 
     deactivate_user(user_id, db)
