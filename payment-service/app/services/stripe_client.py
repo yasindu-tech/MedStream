@@ -12,11 +12,17 @@ class StripeClient:
         appointment_id: str,
         amount: Decimal,
         currency: str,
-        patient_email: str
+        patient_email: str,
+        doctor_name: str = "Doctor",
+        appointment_date: str = "",
     ) -> Optional[dict]:
         """
         Creates a Stripe Checkout Session for the payment.
         """
+        product_name = f"Consultation with {doctor_name}"
+        if appointment_date:
+            product_name += f" on {appointment_date}"
+
         try:
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
@@ -24,7 +30,8 @@ class StripeClient:
                     'price_data': {
                         'currency': currency.lower(),
                         'product_data': {
-                            'name': f'Appointment Booking - {appointment_id}',
+                            'name': product_name,
+                            'description': f'Appointment ID: {appointment_id}',
                         },
                         'unit_amount': int(amount * 100), # Amount in cents
                     },

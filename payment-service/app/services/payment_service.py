@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
 from fastapi import HTTPException, status
 from datetime import datetime, timedelta, timezone
+import httpx
 import logging
 
 from app.models.payment import Payment, PaymentStatus
@@ -118,12 +119,19 @@ class PaymentService:
         
         await db.commit()
         
-        # 2. Notify (Fire and forget)
+        # 2. Callback to appointment-service to confirm the appointment
+        await PaymentService._notify_appointment_service(
+            appointment_id=str(payment.appointment_id),
+            payment_status="paid",
+            transaction_reference=transaction_id,
+        )
+        
+        # 3. Notify patient (Fire and forget)
         await send_notification(
             event_type=NotificationEvents.PAYMENT_CONFIRMED,
             user_id=str(payment.patient_id),
             payload={
-                "patient_name": "Valued Patient", # We don't have user names in this DB
+                "patient_name": "Valued Patient",
                 "amount": float(payment.amount),
                 "currency": payment.currency,
                 "transaction_reference": transaction_id,
@@ -152,6 +160,13 @@ class PaymentService:
         
         await db.commit()
         
+        # Callback to appointment-service to mark payment as failed
+        await PaymentService._notify_appointment_service(
+            appointment_id=str(payment.appointment_id),
+            payment_status="failed",
+            transaction_reference=None,
+        )
+        
         # Notify failure
         await send_notification(
             event_type=NotificationEvents.PAYMENT_FAILED,
@@ -164,3 +179,23 @@ class PaymentService:
                 "retries_remaining": payment.max_retries - payment.retry_count
             }
         )
+
+    @staticmethod
+    async def _notify_appointment_service(
+        appointment_id: str,
+        payment_status: str,
+        transaction_reference: str | None,
+    ):
+        """Fire-and-forget callback to appointment-service to sync payment status."""
+        url = f"{settings.APPOINTMENT_SERVICE_URL}/internal/appointments/{appointment_id}/payment-status"
+        body = {
+            "payment_status": payment_status,
+            "transaction_reference": transaction_reference,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.patch(url, json=body)
+                resp.raise_for_status()
+                logger.info(f"Appointment {appointment_id} payment status updated to {payment_status}")
+        except Exception as exc:
+            logger.error(f"Failed to notify appointment-service for {appointment_id}: {exc}")

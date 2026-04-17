@@ -11,7 +11,7 @@ class PaymentBase(BaseModel):
     doctor_id: UUID
     clinic_id: Optional[UUID] = None
     amount: Decimal
-    currency: str = "USD"
+    currency: str = "LKR"
 
 class PaymentCreate(PaymentBase):
     pass
