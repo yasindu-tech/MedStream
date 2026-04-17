@@ -9,12 +9,12 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import Appointment, AppointmentStatusHistory
+from app.models import Appointment, AppointmentStatusHistory, Patient
 from app.services.followup import _get_doctor_info_by_user
 from app.services.policy import resolve_policy_for_appointment
 
 
-TERMINAL_STATUSES = {"completed", "cancelled", "no_show"}
+TERMINAL_STATUSES = {"completed", "cancelled", "no_show", "technical_failed"}
 
 
 def mark_arrived(
@@ -162,6 +162,73 @@ def mark_no_show(
     return appt
 
 
+def mark_technical_failure(
+    db: Session,
+    *,
+    appointment_id: UUID,
+    actor_role: str,
+    actor_user_id: str,
+    reason: str | None,
+) -> Appointment:
+    appt = _load_appointment(db, appointment_id)
+    _reject_if_cancelled_or_terminal(appt)
+
+    if actor_role == "doctor":
+        doctor_info = _get_doctor_info_by_user(actor_user_id)
+        if UUID(doctor_info["doctor_id"]) != appt.doctor_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only mark technical failure for your own appointments",
+            )
+
+    if actor_role == "patient":
+        patient = db.query(Patient).filter(Patient.user_id == UUID(actor_user_id)).first()
+        if not patient or patient.patient_id != appt.patient_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only mark technical failure for your own appointment",
+            )
+
+    if actor_role == "system" and appt.appointment_type != "telemedicine":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="System technical-failure automation is only supported for telemedicine appointments",
+        )
+
+    now_dt = datetime.now()
+    technical_reason = reason or "Technical issue reported during consultation"
+
+    _record_history(
+        db,
+        appointment_id=appt.appointment_id,
+        old_status=appt.status,
+        new_status="technical_failed",
+        changed_by=f"Role: {actor_role} (ID: {actor_user_id})",
+        reason=technical_reason,
+    )
+    appt.status = "technical_failed"
+    appt.technical_failure_at = now_dt
+    appt.technical_failure_reason = technical_reason
+    appt.technical_failure_marked_by = f"{actor_role}:{actor_user_id}"
+
+    db.commit()
+    db.refresh(appt)
+
+    _emit_notification_event(
+        event_type="appointment.technical_failure",
+        appointment=appt,
+        actor_role=actor_role,
+        actor_user_id=actor_user_id,
+    )
+    _trigger_reschedule_recommendation(
+        appointment=appt,
+        actor_role=actor_role,
+        actor_user_id=actor_user_id,
+        reason=technical_reason,
+    )
+    return appt
+
+
 def _load_appointment(db: Session, appointment_id: UUID) -> Appointment:
     appt = db.query(Appointment).filter(Appointment.appointment_id == appointment_id).first()
     if not appt:
@@ -222,7 +289,7 @@ def _emit_notification_event(
 
     try:
         with httpx.Client(timeout=2.0) as client:
-            client.post(f"{settings.NOTIFICATION_SERVICE_URL}/events", json=payload)
+            client.post(f"{settings.NOTIFICATION_SERVICE_URL}/api/notifications/events", json=payload)
     except httpx.RequestError:
         # Fail-open for non-critical notification calls.
         return
@@ -250,3 +317,36 @@ def _trigger_post_completion_workflows(
         actor_role=actor_role,
         actor_user_id=actor_user_id,
     )
+
+
+def _trigger_reschedule_recommendation(
+    *,
+    appointment: Appointment,
+    actor_role: str,
+    actor_user_id: str,
+    reason: str,
+) -> None:
+    payload = {
+        "event_type": "workflow.reschedule.recommendation",
+        "user_id": str(appointment.patient_id),
+        "payload": {
+            "appointment_id": str(appointment.appointment_id),
+            "status": appointment.status,
+            "technical_failure_reason": reason,
+            "clinic_name": appointment.clinic_name,
+            "doctor_name": appointment.doctor_name,
+            "date": appointment.appointment_date.isoformat(),
+            "start_time": appointment.start_time.strftime("%H:%M"),
+            "actor_role": actor_role,
+            "actor_user_id": actor_user_id,
+            "recommend_reschedule": True,
+        },
+        "channels": ["in_app"],
+        "priority": "high",
+    }
+
+    try:
+        with httpx.Client(timeout=2.0) as client:
+            client.post(f"{settings.NOTIFICATION_SERVICE_URL}/api/notifications/events", json=payload)
+    except httpx.RequestError:
+        return

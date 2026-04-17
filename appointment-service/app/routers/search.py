@@ -4,7 +4,6 @@ Accessible via the API gateway at:
   GET /appointments/doctors/search           (AS-01)
   GET /appointments/doctors/{id}/profile     (AS-02)
 
-Requires a valid JWT with role = patient (or admin).
 Proxies requests to doctor-service internally and returns the results.
 """
 from __future__ import annotations
@@ -12,9 +11,8 @@ from datetime import date
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 
-from app.middleware import require_roles
 from app.schemas import DoctorSearchResponse, DoctorProfileResponse
 from app.services import search_doctors, get_doctor_profile
 
@@ -31,7 +29,6 @@ def doctor_search(
     date: Optional[date] = Query(None, description="Availability date (YYYY-MM-DD)"),
     consultation_type: Optional[str] = Query(None, description="'physical' or 'telemedicine'"),
     clinic_id: Optional[UUID] = Query(None, description="Filter by specific clinic UUID"),
-    _user: dict = Depends(require_roles("patient", "admin")),
 ) -> DoctorSearchResponse:
     """
     Search for available doctors.
@@ -59,7 +56,6 @@ def doctor_search(
 def doctor_profile(
     doctor_id: UUID,
     date: Optional[date] = Query(None, description="Target date for slot availability (YYYY-MM-DD)"),
-    _user: dict = Depends(require_roles("patient", "admin")),
 ) -> DoctorProfileResponse:
     """
     View a doctor's full profile and available time slots.
