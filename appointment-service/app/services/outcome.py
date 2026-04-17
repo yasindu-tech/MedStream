@@ -42,6 +42,7 @@ def mark_arrived(
     db.commit()
     db.refresh(appt)
     _emit_notification_event(
+        db,
         event_type="appointment.arrived",
         appointment=appt,
         actor_role=actor_role,
@@ -95,12 +96,14 @@ def mark_completed(
     db.commit()
     db.refresh(appt)
     _emit_notification_event(
+        db,
         event_type="appointment.completed",
         appointment=appt,
         actor_role=actor_role,
         actor_user_id=actor_user_id,
     )
     _trigger_post_completion_workflows(
+        db,
         appointment=appt,
         actor_role=actor_role,
         actor_user_id=actor_user_id,
@@ -154,6 +157,7 @@ def mark_no_show(
     db.commit()
     db.refresh(appt)
     _emit_notification_event(
+        db,
         event_type="appointment.no_show",
         appointment=appt,
         actor_role=actor_role,
@@ -215,12 +219,14 @@ def mark_technical_failure(
     db.refresh(appt)
 
     _emit_notification_event(
+        db,
         event_type="appointment.technical_failure",
         appointment=appt,
         actor_role=actor_role,
         actor_user_id=actor_user_id,
     )
     _trigger_reschedule_recommendation(
+        db,
         appointment=appt,
         actor_role=actor_role,
         actor_user_id=actor_user_id,
@@ -264,15 +270,20 @@ def _record_history(
 
 
 def _emit_notification_event(
+    db: Session,
     *,
     event_type: str,
     appointment: Appointment,
     actor_role: str,
     actor_user_id: str,
 ) -> None:
+    patient_user_id = _resolve_patient_user_id(db, appointment.patient_id)
+    if not patient_user_id:
+        return
+
     payload = {
         "event_type": event_type,
-        "user_id": str(appointment.patient_id),
+        "user_id": patient_user_id,
         "payload": {
             "appointment_id": str(appointment.appointment_id),
             "status": appointment.status,
@@ -296,6 +307,7 @@ def _emit_notification_event(
 
 
 def _trigger_post_completion_workflows(
+    db: Session,
     *,
     appointment: Appointment,
     actor_role: str,
@@ -306,12 +318,14 @@ def _trigger_post_completion_workflows(
     prescription and follow-up handling after completion.
     """
     _emit_notification_event(
+        db,
         event_type="workflow.prescription.trigger",
         appointment=appointment,
         actor_role=actor_role,
         actor_user_id=actor_user_id,
     )
     _emit_notification_event(
+        db,
         event_type="workflow.followup.trigger",
         appointment=appointment,
         actor_role=actor_role,
@@ -320,15 +334,20 @@ def _trigger_post_completion_workflows(
 
 
 def _trigger_reschedule_recommendation(
+    db: Session,
     *,
     appointment: Appointment,
     actor_role: str,
     actor_user_id: str,
     reason: str,
 ) -> None:
+    patient_user_id = _resolve_patient_user_id(db, appointment.patient_id)
+    if not patient_user_id:
+        return
+
     payload = {
         "event_type": "workflow.reschedule.recommendation",
-        "user_id": str(appointment.patient_id),
+        "user_id": patient_user_id,
         "payload": {
             "appointment_id": str(appointment.appointment_id),
             "status": appointment.status,
@@ -350,3 +369,10 @@ def _trigger_reschedule_recommendation(
             client.post(f"{settings.NOTIFICATION_SERVICE_URL}/api/notifications/events", json=payload)
     except httpx.RequestError:
         return
+
+
+def _resolve_patient_user_id(db: Session, patient_id: UUID) -> str | None:
+    patient = db.query(Patient).filter(Patient.patient_id == patient_id).first()
+    if not patient or not patient.user_id:
+        return None
+    return str(patient.user_id)

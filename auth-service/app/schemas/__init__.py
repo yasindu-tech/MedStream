@@ -26,6 +26,7 @@ class OtpPurpose(str, Enum):
 
 # --- Request Schemas ---
 class RegisterRequest(BaseModel):
+    full_name: str
     email: EmailStr
     password: str
     phone: Optional[str] = None
@@ -62,6 +63,7 @@ class OTPResponse(BaseModel):
 
 class UserResponse(BaseModel):
     id: UUID
+    full_name: Optional[str] = None
     email: str
     phone: Optional[str] = None
     is_verified: bool

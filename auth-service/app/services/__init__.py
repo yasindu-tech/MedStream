@@ -19,6 +19,7 @@ OTP_EXPIRE_MINUTES = 10
 def _serialize_user(user: User) -> dict:
     return {
         "id": user.id,
+        "full_name": user.full_name,
         "email": user.email,
         "phone": user.phone,
         "is_verified": user.is_verified,
@@ -43,6 +44,7 @@ def _primary_role(user: User) -> str:
 def _create_patient_profile(user: User) -> None:
     payload = {
         "user_id": str(user.id),
+        "full_name": user.full_name,
         "email": user.email,
         "phone": user.phone,
     }
@@ -57,6 +59,7 @@ def register_user(data: RegisterRequest, db: Session) -> dict:
 
     role = _get_role(db, data.role.value)
     user = User(
+        full_name=data.full_name.strip(),
         email=data.email,
         phone=data.phone,
         password_hash=hash_password(data.password),
@@ -81,7 +84,14 @@ def register_user(data: RegisterRequest, db: Session) -> dict:
 
     return _serialize_user(user)
 
-def create_verified_user(email: str, password: str, role_name: str, db: Session, phone: str | None = None) -> dict:
+def create_verified_user(
+    email: str,
+    password: str,
+    role_name: str,
+    db: Session,
+    phone: str | None = None,
+    full_name: str | None = None,
+) -> dict:
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
     if phone and db.query(User).filter(User.phone == phone).first():
@@ -89,6 +99,7 @@ def create_verified_user(email: str, password: str, role_name: str, db: Session,
 
     role = _get_role(db, role_name)
     user = User(
+        full_name=full_name.strip() if full_name else None,
         email=email,
         phone=phone,
         password_hash=hash_password(password),

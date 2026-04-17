@@ -1,11 +1,11 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 from app.routers import events, inbox, templates, preferences
 from app.services.notification_service import seed_default_templates, process_notification_queue
 from app.services.websocket_service import manager
-from app.middleware import get_current_user
+from app.utils.jwt import decode_token
 from app.config import settings
 import logging
 import asyncio
@@ -50,10 +50,11 @@ app = FastAPI(
 
 # CORS middleware
 app.add_middleware(
-    CORSMiddleware, 
-    allow_origins=["*"], 
-    allow_methods=["*"], 
-    allow_headers=["*"]
+    CORSMiddleware,
+    allow_origins=settings.cors_origins_list(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include routers
@@ -69,10 +70,28 @@ async def health():
 
 @app.websocket("/ws/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=1008, reason="Missing token")
+        return
+
+    try:
+        payload = decode_token(token)
+    except Exception:
+        await websocket.close(code=1008, reason="Invalid token")
+        return
+
+    token_user_id = payload.get("sub")
+    if not token_user_id or token_user_id != user_id:
+        await websocket.close(code=1008, reason="User mismatch")
+        return
+
     await manager.connect(websocket, user_id)
     try:
         while True:
             # Keep connection alive
             await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user_id)
     except Exception:
         manager.disconnect(websocket, user_id)

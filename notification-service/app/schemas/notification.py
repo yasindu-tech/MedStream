@@ -75,8 +75,8 @@ class TemplateRead(TemplateBase):
 
 # Queue Schemas
 class QueueStatusResponse(NotificationBase):
-    id: UUID
+    notification_id: UUID
     status: NotificationStatus
-    retry_count: int
-    processed_at: Optional[datetime]
+    channel: NotificationChannel
+    sent_at: Optional[datetime]
     created_at: datetime

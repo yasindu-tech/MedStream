@@ -25,7 +25,7 @@ def _emit_notification_event(event_type: str, user_id: str, payload: dict[str, A
     try:
         with httpx.Client(timeout=2.0) as client:
             client.post(
-                f"{settings.NOTIFICATION_SERVICE_URL}/events",
+                f"{settings.NOTIFICATION_SERVICE_URL}/api/notifications/events",
                 json={
                     "event_type": event_type,
                     "user_id": user_id,
@@ -36,6 +36,13 @@ def _emit_notification_event(event_type: str, user_id: str, payload: dict[str, A
             )
     except httpx.RequestError:
         return
+
+
+def _resolve_patient_user_id(db: Session, patient_id: UUID) -> str | None:
+    patient = db.query(Patient).filter(Patient.patient_id == patient_id).first()
+    if not patient or not patient.user_id:
+        return None
+    return str(patient.user_id)
 
 
 def _resolve_doctor_id(user_id: str) -> tuple[UUID, str]:
@@ -90,10 +97,11 @@ def doctor_accept_appointment(db: Session, appointment_id: UUID, doctor_user_id:
     db.commit()
     db.refresh(appt)
 
-    if appt.patient_id:
+    patient_user_id = _resolve_patient_user_id(db, appt.patient_id)
+    if patient_user_id:
         _emit_notification_event(
             event_type="appointment.accepted",
-            user_id=str(appt.patient_id),
+            user_id=patient_user_id,
             payload={
                 "appointment_id": str(appt.appointment_id),
                 "status": appt.status,
@@ -131,10 +139,11 @@ def doctor_reject_appointment(db: Session, appointment_id: UUID, doctor_user_id:
     db.commit()
     db.refresh(appt)
 
-    if appt.patient_id:
+    patient_user_id = _resolve_patient_user_id(db, appt.patient_id)
+    if patient_user_id:
         _emit_notification_event(
             event_type="appointment.rejected",
-            user_id=str(appt.patient_id),
+            user_id=patient_user_id,
             payload={
                 "appointment_id": str(appt.appointment_id),
                 "status": appt.status,

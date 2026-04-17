@@ -116,7 +116,7 @@ def _emit_cancellation_notification_event(*, db: Session, appointment: Appointme
             "reason": appointment.cancellation_reason,
             "phone": patient.phone,
         },
-        "channels": ["sms", "email"],
+        "channels": ["sms", "email", "in_app"],
         "priority": "normal",
     }
 

@@ -203,6 +203,13 @@ CREATE TABLE IF NOT EXISTS patientcare.prescriptions (
     CONSTRAINT fk_prescriptions_patient FOREIGN KEY (patient_id) REFERENCES patientcare.patients(patient_id) ON DELETE CASCADE
 );
 
+ALTER TABLE patientcare.prescriptions ADD COLUMN IF NOT EXISTS clinic_id uuid;
+ALTER TABLE patientcare.prescriptions ADD COLUMN IF NOT EXISTS medications jsonb NOT NULL DEFAULT '[]';
+ALTER TABLE patientcare.prescriptions ADD COLUMN IF NOT EXISTS status varchar(30) NOT NULL DEFAULT 'draft';
+ALTER TABLE patientcare.prescriptions ADD COLUMN IF NOT EXISTS finalized_at timestamptz;
+ALTER TABLE patientcare.prescriptions ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE patientcare.prescriptions ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
 CREATE TABLE IF NOT EXISTS patientcare.prescription_items (
     prescription_item_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     prescription_id uuid NOT NULL,
