@@ -486,7 +486,7 @@ def create_clinic(db: Session, payload: CreateClinicRequest, created_by: str | N
         status="pending",
     )
     db.add(onboarding)
-    _log_clinic_creation(db, clinic, created_by=created_by)
+    _log_clinic_creation(db, clinic, changed_by=created_by)
     db.commit()
     db.refresh(clinic)
 
