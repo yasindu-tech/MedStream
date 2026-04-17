@@ -75,6 +75,25 @@ def get_booked_slots_batch(
         return {}
 
 
+def get_pending_future_appointments(doctor_id: str, clinic_id: str | None = None) -> int:
+    """
+    Fetch a count of pending or confirmed future appointments for the doctor.
+    If clinic_id is provided, the count is restricted to that clinic.
+    """
+    url = f"{settings.APPOINTMENT_SERVICE_URL}/internal/appointments/pending-future/doctor/{doctor_id}"
+    params = {}
+    if clinic_id:
+        params["clinic_id"] = clinic_id
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            response = client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            return int(data.get("pending_future_appointments", 0))
+    except (httpx.RequestError, httpx.HTTPStatusError, ValueError, TypeError):
+        return 0
+
+
 def get_effective_policy() -> dict:
     """
     Fetch effective appointment policy from appointment-service.

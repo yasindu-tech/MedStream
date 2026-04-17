@@ -1,8 +1,8 @@
 """SQLAlchemy models for the patientcare schema (appointment-service)."""
 import uuid
 from datetime import date, time
-from sqlalchemy import Boolean, Column, Integer, String, Date, Time, DateTime, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Column, Integer, String, Date, Time, DateTime, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -86,6 +86,52 @@ class AppointmentStatusHistory(Base):
     changed_by = Column(String(100), nullable=True)
     reason = Column(String, nullable=True)
     changed_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AppointmentNote(Base):
+    __tablename__ = "appointment_notes"
+    __table_args__ = {"schema": "patientcare"}
+
+    note_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    appointment_id = Column(UUID(as_uuid=True), nullable=False)
+    doctor_id = Column(UUID(as_uuid=True), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class Prescription(Base):
+    __tablename__ = "prescriptions"
+    __table_args__ = {"schema": "patientcare"}
+
+    prescription_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    appointment_id = Column(UUID(as_uuid=True), nullable=False)
+    doctor_id = Column(UUID(as_uuid=True), nullable=False)
+    patient_id = Column(UUID(as_uuid=True), nullable=False)
+    clinic_id = Column(UUID(as_uuid=True), nullable=True)
+    medications = Column(JSON, nullable=False)
+    instructions = Column("notes", Text, nullable=True)
+    status = Column(String(30), nullable=False, default="draft")
+    issued_at = Column(DateTime(timezone=True), nullable=True)
+    finalized_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class PatientDocument(Base):
+    __tablename__ = "medical_documents"
+    __table_args__ = {"schema": "patientcare"}
+
+    document_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    patient_id = Column(UUID(as_uuid=True), nullable=False)
+    appointment_id = Column(UUID(as_uuid=True), nullable=True)
+    name = Column("file_name", String(255), nullable=False)
+    document_type = Column(String(100), nullable=True)
+    url = Column("file_url", Text, nullable=False)
+    description = Column(Text, nullable=True)
+    uploaded_by = Column(String(50), nullable=True)
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    visibility = Column(String(50), nullable=True)
 
 
 class AppointmentPolicy(Base):
