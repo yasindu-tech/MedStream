@@ -117,3 +117,25 @@ def suspend_doctor_profile(db: Session, doctor_id: UUID, reason: str | None = No
     db.commit()
     db.refresh(doctor)
     return doctor
+
+
+def reactivate_doctor_profile(db: Session, doctor_id: UUID) -> Doctor:
+    doctor = _ensure_doctor_exists(db, doctor_id)
+    if doctor.status != "suspended":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Doctor is not suspended and cannot be reactivated.",
+        )
+
+    if doctor.verification_status != "verified":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot reactivate a doctor whose verification is not approved.",
+        )
+
+    doctor.status = "active"
+    doctor.suspension_reason = None
+    db.add(doctor)
+    db.commit()
+    db.refresh(doctor)
+    return doctor

@@ -9,6 +9,7 @@ from app.routers.reschedule import router as reschedule_router
 from app.routers.cancellation import router as cancellation_router
 from app.routers.history import router as history_router
 from app.routers.outcome import router as outcome_router
+from app.routers.consultation import router as consultation_router
 from app.routers.admin import router as admin_router
 from app.routers.policy import router as policy_router
 
@@ -40,6 +41,9 @@ app.include_router(reschedule_router)
 
 # Public: JWT required, exposed via nginx at /appointments/appointments/{id}/cancel
 app.include_router(cancellation_router)
+
+# Public: JWT required, exposed via nginx at /appointments/appointments/{id}/accept
+app.include_router(consultation_router)
 
 # Public: JWT required, exposed via nginx at /appointments/appointments (GET)
 app.include_router(history_router)

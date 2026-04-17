@@ -13,7 +13,13 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Appointment, Patient
-from app.schemas import AppointmentOutcomeResponse, BookedSlotResponse, InternalNoShowRequest, MarkArrivedRequest
+from app.schemas import (
+    AppointmentOutcomeResponse,
+    BookedSlotResponse,
+    DoctorEventRequest,
+    InternalNoShowRequest,
+    MarkArrivedRequest,
+)
 from app.services.outcome import mark_arrived, mark_no_show
 from app.services.policy import resolve_effective_policy
 
@@ -145,7 +151,7 @@ def internal_get_clinic_pending_future_appointments(
     db: Session = Depends(get_db),
 ) -> dict:
     now = datetime.utcnow()
-    pending_statuses = {"scheduled", "confirmed", "pending_payment"}
+    pending_statuses = {"scheduled", "pending_doctor", "confirmed", "pending_payment"}
     pending_query = (
         db.query(Appointment)
         .filter(
@@ -171,7 +177,7 @@ def internal_get_doctor_pending_future_appointments(
     db: Session = Depends(get_db),
 ) -> dict:
     now = datetime.utcnow()
-    pending_statuses = {"scheduled", "confirmed", "pending_payment"}
+    pending_statuses = {"scheduled", "pending_doctor", "confirmed", "pending_payment"}
     pending_query = (
         db.query(Appointment)
         .filter(
@@ -194,26 +200,36 @@ def internal_get_doctor_pending_future_appointments(
 @router.get("/appointments/pending-future/doctor/{doctor_id}")
 def internal_get_doctor_pending_future_appointments_all(
     doctor_id: UUID,
+    clinic_id: UUID | None = Query(None, description="Clinic UUID to restrict the count"),
     db: Session = Depends(get_db),
 ) -> dict:
     now = datetime.utcnow()
-    pending_statuses = {"scheduled", "confirmed", "pending_payment"}
-    pending_query = (
-        db.query(Appointment)
-        .filter(
-            Appointment.doctor_id == doctor_id,
-            Appointment.status.in_(pending_statuses),
-            (
-                (Appointment.appointment_date > now.date())
-                | (
-                    (Appointment.appointment_date == now.date())
-                    & (Appointment.start_time >= now.time())
-                )
-            ),
-        )
+    pending_statuses = {"scheduled", "pending_doctor", "confirmed", "pending_payment"}
+    query = db.query(Appointment).filter(
+        Appointment.doctor_id == doctor_id,
+        Appointment.status.in_(pending_statuses),
+        (
+            (Appointment.appointment_date > now.date())
+            | (
+                (Appointment.appointment_date == now.date())
+                & (Appointment.start_time >= now.time())
+            )
+        ),
     )
-    count = pending_query.count()
+    if clinic_id is not None:
+        query = query.filter(Appointment.clinic_id == clinic_id)
+
+    count = query.count()
     return {"pending_future_appointments": count}
+
+
+@router.post("/doctor-events")
+def internal_receive_doctor_event(
+    event: DoctorEventRequest,
+) -> dict:
+    """Accept published doctor profile events from doctor-service for downstream systems."""
+    # TODO: downstream services can subscribe to these events via message bus or direct HTTP.
+    return {"status": "accepted", "event_type": event.event_type}
 
 
 @router.get("/appointments/pending-future/patient/user/{user_id}")
