@@ -15,6 +15,15 @@ def ensure_patient_schema() -> None:
             "ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS profile_status varchar(30);"
         )
         conn.exec_driver_sql(
+            "ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS emergency_contact varchar(255);"
+        )
+        conn.exec_driver_sql(
+            "ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS profile_image_url text;"
+        )
+        conn.exec_driver_sql(
+            "ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS pending_email varchar(255);"
+        )
+        conn.exec_driver_sql(
             "UPDATE patientcare.patients SET profile_status = 'active' WHERE profile_status IS NULL;"
         )
         conn.exec_driver_sql(

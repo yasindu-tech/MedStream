@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS patientcare.patients (
     nic_passport varchar(50),
     phone varchar(30),
     address text,
+    emergency_contact varchar(255),
+    profile_image_url text,
+    pending_email varchar(255),
     blood_group varchar(10),
     profile_status varchar(30) NOT NULL DEFAULT 'active',
     created_at timestamptz NOT NULL DEFAULT now(),
@@ -37,6 +40,9 @@ CREATE TABLE IF NOT EXISTS patientcare.patients (
 
 ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS email varchar(255);
 ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS profile_status varchar(30) NOT NULL DEFAULT 'active';
+ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS emergency_contact varchar(255);
+ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS profile_image_url text;
+ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS pending_email varchar(255);
 ALTER TABLE patientcare.patients ADD CONSTRAINT IF NOT EXISTS uq_patients_email UNIQUE (email);
 ALTER TABLE patientcare.patients ADD CONSTRAINT IF NOT EXISTS uq_patients_user_id UNIQUE (user_id);
 
