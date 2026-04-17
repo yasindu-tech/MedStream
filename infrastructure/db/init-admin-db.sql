@@ -166,6 +166,19 @@ CREATE TABLE IF NOT EXISTS admin.doctor_availability (
 -- Ensure newer scheduling columns exist on databases created before one-time date support
 ALTER TABLE admin.doctor_availability ADD COLUMN IF NOT EXISTS date date;
 
+CREATE TABLE IF NOT EXISTS admin.doctor_leave (
+    leave_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    doctor_id       uuid NOT NULL,
+    clinic_id       uuid,
+    start_datetime  timestamptz NOT NULL,
+    end_datetime    timestamptz NOT NULL,
+    reason          text,
+    status          varchar(30) NOT NULL DEFAULT 'active',
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT fk_leave_doctor FOREIGN KEY (doctor_id) REFERENCES admin.doctors(doctor_id) ON DELETE CASCADE,
+    CONSTRAINT fk_leave_clinic FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_doctor_availability_slot
     ON admin.doctor_availability (doctor_id, clinic_id, day_of_week, start_time, consultation_type);
 
