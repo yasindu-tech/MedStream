@@ -14,6 +14,28 @@ from app.services.history import fetch_appointment_history
 
 router = APIRouter(tags=["Appointment History"])
 
+@router.get("/appointments/queue", response_model=AppointmentListPaginatedResponse, status_code=200)
+def view_doctor_appointment_queue(
+    page: int = Query(1, ge=1, description="Page number"),
+    size: int = Query(20, ge=1, le=100, description="Items per page"),
+    status: str = Query("pending_doctor", description="Filter appointments by queue status"),
+    consultation_type: Optional[str] = Query(None, description="Filter by physical or telemedicine"),
+    user: dict = Depends(require_roles("doctor")),
+    db: Session = Depends(get_db),
+) -> AppointmentListPaginatedResponse:
+    """
+    Doctor-facing appointment queue showing pending appointments for the signed-in doctor.
+    """
+    return fetch_appointment_history(
+        db,
+        user=user,
+        page=page,
+        size=size,
+        filter_status=status,
+        filter_type=consultation_type,
+    )
+
+
 @router.get("/appointments", response_model=AppointmentListPaginatedResponse, status_code=200)
 def view_appointment_history_endpoint(
     page: int = Query(1, ge=1, description="Page number"),
