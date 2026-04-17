@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, constr
 
 
 class CreateClinicRequest(BaseModel):
@@ -38,6 +38,52 @@ class ClinicActionResponse(BaseModel):
     clinic_id: UUID
     status: str
     message: str
+
+    class Config:
+        from_attributes = True
+
+
+PhoneNumber = constr(
+    strip_whitespace=True,
+    min_length=7,
+    max_length=30,
+    pattern=r"^[0-9+()\-\s]+$",
+)
+
+
+class CreateClinicStaffRequest(BaseModel):
+    email: EmailStr
+    name: str = Field(..., min_length=3, description="Full name of the clinic staff member")
+    phone: PhoneNumber | None = Field(None, description="Contact phone number for the staff member")
+    role: str = Field(..., min_length=3, description="Role within the clinic, e.g. receptionist, nurse")
+
+
+class UpdateClinicStaffRequest(BaseModel):
+    name: str | None = Field(None, min_length=3, description="Updated staff full name")
+    phone: PhoneNumber | None = Field(None, description="Updated contact phone number")
+    role: str | None = Field(None, min_length=3, description="Updated clinic staff role")
+
+
+class ClinicStaffResponse(BaseModel):
+    staff_id: UUID
+    clinic_id: UUID
+    user_id: UUID | None
+    staff_email: EmailStr | None
+    staff_name: str | None
+    staff_phone: str | None
+    staff_role: str | None
+    status: str
+    created_at: datetime
+    updated_at: datetime | None = None
+    updated_by: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class CreateClinicStaffResponse(BaseModel):
+    staff: ClinicStaffResponse
+    temporary_password: str
 
     class Config:
         from_attributes = True
