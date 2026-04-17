@@ -75,10 +75,20 @@ def get_booked_slots_batch(
         return {}
 
 
-def get_pending_future_appointments(doctor_id: str, clinic_id: str | None = None) -> int:
+def get_pending_future_appointments(
+    doctor_id: str,
+    clinic_id: str | None = None,
+    *,
+    fail_open: bool = False,
+) -> int:
     """
     Fetch a count of pending or confirmed future appointments for the doctor.
     If clinic_id is provided, the count is restricted to that clinic.
+
+    By default this fails closed: network/HTTP/parse errors are raised so
+    callers that use this count to guard mutations do not treat an outage as
+    "no appointments". Read-only callers that explicitly accept degraded
+    behavior may opt into `fail_open=True`, which returns 0 on error.
     """
     url = f"{settings.APPOINTMENT_SERVICE_URL}/internal/appointments/pending-future/doctor/{doctor_id}"
     params = {}
@@ -90,8 +100,12 @@ def get_pending_future_appointments(doctor_id: str, clinic_id: str | None = None
             response.raise_for_status()
             data = response.json()
             return int(data.get("pending_future_appointments", 0))
-    except (httpx.RequestError, httpx.HTTPStatusError, ValueError, TypeError):
-        return 0
+    except (httpx.RequestError, httpx.HTTPStatusError, ValueError, TypeError) as exc:
+        if fail_open:
+            return 0
+        raise RuntimeError(
+            "Unable to fetch pending future appointments from appointment-service"
+        ) from exc
 
 
 def get_effective_policy() -> dict:
