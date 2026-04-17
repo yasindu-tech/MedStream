@@ -9,11 +9,14 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Appointment, Patient
 from app.schemas import (
+    AppointmentListItemResponse,
+    AppointmentListPaginatedResponse,
     AppointmentOutcomeResponse,
     BookedSlotResponse,
     DoctorEventRequest,
@@ -221,6 +224,68 @@ def internal_get_doctor_pending_future_appointments_all(
 
     count = query.count()
     return {"pending_future_appointments": count}
+
+
+@router.get("/clinics/{clinic_id}/appointments", response_model=AppointmentListPaginatedResponse)
+def internal_get_clinic_appointments(
+    clinic_id: UUID = Path(...),
+    date: date | None = Query(None, description="Filter by appointment date"),
+    status: str | None = Query(None, description="Filter by appointment status"),
+    consultation_type: str | None = Query(None, description="Filter by consultation type"),
+    page: int = Query(1, ge=1, description="Page number"),
+    size: int = Query(20, ge=1, le=100, description="Items per page"),
+    db: Session = Depends(get_db),
+) -> AppointmentListPaginatedResponse:
+    query = (
+        db.query(Appointment, Patient)
+        .join(Patient, Appointment.patient_id == Patient.patient_id)
+        .filter(Appointment.clinic_id == clinic_id)
+    )
+
+    if date is not None:
+        query = query.filter(Appointment.appointment_date == date)
+    if status is not None:
+        query = query.filter(Appointment.status == status)
+    if consultation_type is not None:
+        query = query.filter(Appointment.appointment_type == consultation_type)
+
+    total = query.count()
+    offset = (page - 1) * size
+    results = (
+        query.order_by(desc(Appointment.appointment_date), desc(Appointment.start_time))
+        .offset(offset)
+        .limit(size)
+        .all()
+    )
+
+    items = []
+    for appt, patient in results:
+        items.append(
+            AppointmentListItemResponse(
+                appointment_id=appt.appointment_id,
+                doctor_id=appt.doctor_id or UUID(int=0),
+                doctor_name=appt.doctor_name,
+                clinic_id=appt.clinic_id or UUID(int=0),
+                clinic_name=appt.clinic_name,
+                patient_id=appt.patient_id,
+                patient_name=patient.full_name,
+                date=appt.appointment_date,
+                start_time=appt.start_time.strftime("%H:%M"),
+                end_time=appt.end_time.strftime("%H:%M"),
+                status=appt.status,
+                payment_status=appt.payment_status,
+                consultation_type=appt.appointment_type,
+            )
+        )
+
+    has_more = (offset + len(items)) < total
+    return AppointmentListPaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        size=size,
+        has_more=has_more,
+    )
 
 
 @router.post("/doctor-events")
