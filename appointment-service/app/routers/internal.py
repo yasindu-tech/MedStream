@@ -4,11 +4,12 @@ Provides booked slot data to doctor-service for slot computation.
 Not exposed through the nginx gateway.
 """
 from __future__ import annotations
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.database import get_db

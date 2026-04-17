@@ -6,12 +6,15 @@ from uuid import UUID
 
 from app.database import get_db
 from app.models.notification import NotificationTemplate
-from app.middleware import get_current_user
+from app.middleware import get_current_user, require_roles
 
 router = APIRouter(prefix="/templates")
 
 @router.get("/", response_model=List[dict])
-async def list_templates(db: AsyncSession = Depends(get_db)):
+async def list_templates(
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(require_roles("admin"))
+):
     stmt = select(NotificationTemplate).where(NotificationTemplate.status == 'active')
     result = await db.execute(stmt)
     templates = result.scalars().all()
@@ -27,7 +30,11 @@ async def list_templates(db: AsyncSession = Depends(get_db)):
     ]
 
 @router.post("/")
-async def create_template(data: dict, db: AsyncSession = Depends(get_db)):
+async def create_template(
+    data: dict, 
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(require_roles("admin"))
+):
     template = NotificationTemplate(**data)
     db.add(template)
     await db.commit()

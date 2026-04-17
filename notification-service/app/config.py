@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     
     ENVIRONMENT: str = "development"
     SERVICE_NAME: str = "notification-service"
-    SERVICE_PORT: int = 8007
+    SERVICE_PORT: int = 8000
 
     # SMS Settings
     TEXT_LK_API_URL: str = "https://app.text.lk/api/v3/sms/send"
