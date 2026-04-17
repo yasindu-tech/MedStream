@@ -89,6 +89,9 @@ def review_doctor_verification(
             "reason": doctor.verification_rejection_reason,
         }
 
+    if reviewer_id is not None:
+        notification_payload["reviewer_id"] = reviewer_id
+
     db.add(doctor)
     db.commit()
     db.refresh(doctor)
