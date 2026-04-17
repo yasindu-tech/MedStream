@@ -218,6 +218,18 @@ async def stripe_webhook(
 
     return {"status": "success"}
 
+@router.post("/verify-session/{session_id}", status_code=200)
+async def verify_payment_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(require_any_auth)
+):
+    """
+    Manually verifies a Stripe/Mock session status and confirms.
+    Used for local dev where webhooks aren't reachable.
+    """
+    return await PaymentService.verify_and_confirm_session(db, session_id)
+
 @router.post("/mock-confirm", status_code=200)
 async def mock_payment_confirm(
     data: MockPayRequest,
