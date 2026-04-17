@@ -8,7 +8,8 @@ from datetime import date, datetime, timedelta
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -323,3 +324,50 @@ def internal_get_effective_policy(db: Session = Depends(get_db)) -> dict:
         "no_show_grace_period_minutes": policy.no_show_grace_period_minutes,
         "max_reschedules": policy.max_reschedules,
     }
+
+
+class _PaymentStatusUpdate(BaseModel):
+    payment_status: str
+    transaction_reference: str | None = None
+
+
+@router.patch("/appointments/{appointment_id}/payment-status")
+def internal_update_payment_status(
+    body: _PaymentStatusUpdate,
+    appointment_id: UUID = Path(...),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Called by payment-service after Stripe confirms/fails a payment.
+    Transitions the appointment status accordingly.
+    """
+    appointment = (
+        db.query(Appointment)
+        .filter(Appointment.appointment_id == appointment_id)
+        .first()
+    )
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    if body.payment_status == "paid":
+        appointment.payment_status = "paid"
+        appointment.status = "confirmed"
+        db.commit()
+        return {
+            "appointment_id": str(appointment_id),
+            "status": appointment.status,
+            "payment_status": appointment.payment_status,
+            "message": "Appointment confirmed after successful payment.",
+        }
+    elif body.payment_status == "failed":
+        appointment.payment_status = "failed"
+        db.commit()
+        return {
+            "appointment_id": str(appointment_id),
+            "status": appointment.status,
+            "payment_status": appointment.payment_status,
+            "message": "Payment failed. Patient may retry.",
+        }
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid payment_status: {body.payment_status}")
+
