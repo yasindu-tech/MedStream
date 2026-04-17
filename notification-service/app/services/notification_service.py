@@ -161,6 +161,24 @@ async def seed_default_templates():
             "body": "Click here to reset your password: {reset_link}"
         },
         {
+            "event_type": "account.suspended",
+            "channel": "email",
+            "subject": "Account Suspended",
+            "body": "Your account has been suspended. Reason: {reason}"
+        },
+        {
+            "event_type": "doctor.verification.approved",
+            "channel": "email",
+            "subject": "Doctor Verification Approved",
+            "body": "Congratulations {doctor_name}, your verification has been approved. {reason}"
+        },
+        {
+            "event_type": "doctor.verification.rejected",
+            "channel": "email",
+            "subject": "Doctor Verification Rejected",
+            "body": "Hello {doctor_name}, your verification request has been rejected. Reason: {reason}"
+        },
+        {
             "event_type": "prescription.available",
             "channel": "in_app",
             "subject": "New Prescription Available",

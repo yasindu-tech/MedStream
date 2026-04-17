@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Appointment
+from app.models import Appointment, Patient
 from app.schemas import AppointmentOutcomeResponse, BookedSlotResponse, InternalNoShowRequest, MarkArrivedRequest
 from app.services.outcome import mark_arrived, mark_no_show
 from app.services.policy import resolve_effective_policy
@@ -177,6 +177,60 @@ def internal_get_doctor_pending_future_appointments(
         .filter(
             Appointment.doctor_id == doctor_id,
             Appointment.clinic_id == clinic_id,
+            Appointment.status.in_(pending_statuses),
+            (
+                (Appointment.appointment_date > now.date())
+                | (
+                    (Appointment.appointment_date == now.date())
+                    & (Appointment.start_time >= now.time())
+                )
+            ),
+        )
+    )
+    count = pending_query.count()
+    return {"pending_future_appointments": count}
+
+
+@router.get("/appointments/pending-future/doctor/{doctor_id}")
+def internal_get_doctor_pending_future_appointments_all(
+    doctor_id: UUID,
+    db: Session = Depends(get_db),
+) -> dict:
+    now = datetime.utcnow()
+    pending_statuses = {"scheduled", "confirmed", "pending_payment"}
+    pending_query = (
+        db.query(Appointment)
+        .filter(
+            Appointment.doctor_id == doctor_id,
+            Appointment.status.in_(pending_statuses),
+            (
+                (Appointment.appointment_date > now.date())
+                | (
+                    (Appointment.appointment_date == now.date())
+                    & (Appointment.start_time >= now.time())
+                )
+            ),
+        )
+    )
+    count = pending_query.count()
+    return {"pending_future_appointments": count}
+
+
+@router.get("/appointments/pending-future/patient/user/{user_id}")
+def internal_get_patient_pending_future_appointments_by_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+) -> dict:
+    patient = db.query(Patient).filter(Patient.user_id == user_id).first()
+    if not patient:
+        return {"pending_future_appointments": 0}
+
+    now = datetime.utcnow()
+    pending_statuses = {"scheduled", "confirmed", "pending_payment"}
+    pending_query = (
+        db.query(Appointment)
+        .filter(
+            Appointment.patient_id == patient.patient_id,
             Appointment.status.in_(pending_statuses),
             (
                 (Appointment.appointment_date > now.date())

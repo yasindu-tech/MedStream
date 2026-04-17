@@ -1,7 +1,7 @@
 """SQLAlchemy models for the admin schema (doctor-service reads from medstream_admin)."""
 import uuid
 from sqlalchemy import Column, String, Integer, Numeric, DateTime, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -18,6 +18,9 @@ class Doctor(Base):
     consultation_mode = Column(String(40), nullable=True)
     verification_status = Column(String(30), nullable=False, default="verified")
     status = Column(String(30), nullable=False, default="active")
+    verification_documents = Column(JSONB, nullable=True)
+    verification_rejection_reason = Column(Text, nullable=True)
+    suspension_reason = Column(Text, nullable=True)
     bio = Column(Text, nullable=True)
     experience_years = Column(Integer, nullable=True)
     qualifications = Column(Text, nullable=True)
