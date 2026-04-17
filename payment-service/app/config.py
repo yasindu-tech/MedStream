@@ -5,7 +5,7 @@ from decimal import Decimal
 class Settings(BaseSettings):
     # Core Service Settings
     SERVICE_NAME: str = "payment-service"
-    SERVICE_PORT: int = 8006
+    SERVICE_PORT: int = 8000
     ENVIRONMENT: str = "development"
 
     # Database Settings
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     DOCTOR_SHARE_PCT: float = 30.0
 
     # Notification Service
-    NOTIFICATION_SERVICE_URL: str = "http://notification-service:8007"
+    NOTIFICATION_SERVICE_URL: str = "http://notification-service:8000"
 
     # Stripe Settings
     STRIPE_API_KEY: str = ""
