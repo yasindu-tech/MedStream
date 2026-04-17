@@ -141,7 +141,7 @@ async def initiate_payment(
     current_user: dict = Depends(require_patient)
 ):
     """Initiates a Stripe Checkout session for a pending payment."""
-    return await PaymentService.initiate_payment(db, str(payment_id), current_user["email"])
+    return await PaymentService.initiate_payment(db, str(payment_id), current_user["email"], current_user["user_id"])
 
 @router.post("/{payment_id}/retry", response_model=PaymentResponse)
 async def retry_payment(
@@ -235,8 +235,13 @@ async def mock_payment_confirm(
         raise HTTPException(status_code=404, detail="Payment not found")
         
     transaction_id = f"mock_tx_{payment.payment_id}"
-    await PaymentService.confirm_payment(db, payment, transaction_id)
-    return {"status": "confirmed", "transaction_id": transaction_id}
+    
+    if data.action == "fail":
+        await PaymentService.fail_payment(db, payment, "Mock payment failure requested by user")
+        return {"status": "failed", "transaction_id": transaction_id}
+    else:
+        await PaymentService.confirm_payment(db, payment, transaction_id)
+        return {"status": "confirmed", "transaction_id": transaction_id}
 
 @router.get("/{payment_id}/receipt")
 async def get_receipt(

@@ -84,6 +84,18 @@ class NotificationService:
         pref_res = await self.db.execute(pref_stmt)
         prefs = pref_res.scalar_one_or_none()
         
+        # Enable enforcement of preferences (AS-03)
+        if prefs:
+            if template.channel == "email" and not prefs.email_enabled:
+                logger.info(f"Notification skipped: User {event_data.user_id} disabled email.")
+                return None
+            if template.channel == "sms" and not prefs.sms_enabled:
+                logger.info(f"Notification skipped: User {event_data.user_id} disabled SMS.")
+                return None
+            if template.channel == "in_app" and not prefs.in_app_enabled:
+                logger.info(f"Notification skipped: User {event_data.user_id} disabled in-app alerts.")
+                return None
+
         # 3. Render
         title = TemplateService.render_subject(template.subject, event_data.payload)
         message = TemplateService.render_body(template.body, event_data.payload)
