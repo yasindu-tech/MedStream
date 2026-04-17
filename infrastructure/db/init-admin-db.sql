@@ -127,6 +127,11 @@ ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS experience_years    int;
 ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS qualifications      text;
 ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS profile_image_url   text;
 ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS consultation_fee    numeric(10,2);
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS specializations      jsonb;
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS primary_specialization varchar(120);
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS verification_documents jsonb;
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS verification_rejection_reason text;
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS suspension_reason    text;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_doctors_medical_registration_no
     ON admin.doctors (medical_registration_no)
@@ -157,6 +162,9 @@ CREATE TABLE IF NOT EXISTS admin.doctor_availability (
     CONSTRAINT fk_avail_doctor FOREIGN KEY (doctor_id) REFERENCES admin.doctors(doctor_id) ON DELETE CASCADE,
     CONSTRAINT fk_avail_clinic FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
 );
+
+-- Ensure newer scheduling columns exist on databases created before one-time date support
+ALTER TABLE admin.doctor_availability ADD COLUMN IF NOT EXISTS date date;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_doctor_availability_slot
     ON admin.doctor_availability (doctor_id, clinic_id, day_of_week, start_time, consultation_type);

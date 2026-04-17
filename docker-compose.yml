@@ -158,6 +158,7 @@ services:
       CLINIC_SERVICE_URL: http://clinic-service:8000
       NOTIFICATION_SERVICE_URL: http://notification-service:8000
       PAYMENT_SERVICE_URL: http://payment-service:8000
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-medstream-internal-token}
     ports:
       - "8004:8000"
     networks:
@@ -245,6 +246,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@admin_db:5432/medstream_admin
       APPOINTMENT_SERVICE_URL: http://appointment-service:8000
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-medstream-internal-token}
     ports:
       - "8007:8000"
     networks:
