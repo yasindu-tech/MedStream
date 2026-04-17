@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     DOCTOR_SERVICE_URL: str = "http://doctor-service:8000"
     CLINIC_SERVICE_URL: str = "http://clinic-service:8000"
     NOTIFICATION_SERVICE_URL: str = "http://notification-service:8000"
+    PAYMENT_SERVICE_URL: str = "http://payment-service:8000"
     SECRET_KEY: str = "your-super-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     RESCHEDULE_WINDOW_HOURS: int = 24

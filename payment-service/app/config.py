@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # Notification Service
     NOTIFICATION_SERVICE_URL: str = "http://notification-service:8000"
 
+    # Appointment Service (for payment status callbacks)
+    APPOINTMENT_SERVICE_URL: str = "http://appointment-service:8000"
+
     # Stripe Settings
     STRIPE_API_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""

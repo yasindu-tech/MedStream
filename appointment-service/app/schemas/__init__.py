@@ -119,6 +119,7 @@ class BookAppointmentResponse(BaseModel):
     status: str             # "pending_doctor", "pending_payment", or "confirmed"
     payment_status: str     # "pending" or "not_required"
     consultation_fee: Optional[float] = None
+    payment_id: Optional[UUID] = None
     message: str
 
 
