@@ -131,7 +131,20 @@ class ClinicDashboardResponse(BaseModel):
     active_doctors: int
     completed_consultations: int
     cancellations: int
+    payment_summary: ClinicFinancialSummaryResponse
     warnings: list[str] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
+
+
+class ClinicFinancialSummaryResponse(BaseModel):
+    total_revenue: Decimal
+    total_refunded: Decimal
+    total_failed: Decimal
+    clinic_share_total: Decimal
+    period_start: datetime | None = None
+    period_end: datetime | None = None
 
     class Config:
         from_attributes = True

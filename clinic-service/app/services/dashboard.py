@@ -9,7 +9,7 @@ from app.services.appointment_client import (
     get_platform_active_patients_count,
     get_platform_daily_bookings_count,
 )
-from app.services.payment_client import get_platform_payment_summary
+from app.services.payment_client import get_clinic_payment_summary, get_platform_payment_summary
 
 
 def count_active_clinic_doctors(db: Session, clinic_id: str) -> int:
@@ -64,12 +64,29 @@ def build_clinic_dashboard(db: Session, clinic_id: str) -> dict:
         else:
             raise
 
+    try:
+        payment_summary = get_clinic_payment_summary(clinic_id)
+    except HTTPException as exc:
+        if exc.status_code in (status.HTTP_502_BAD_GATEWAY, status.HTTP_503_SERVICE_UNAVAILABLE):
+            warnings.append("Payment service unavailable for clinic financial summary.")
+            payment_summary = {
+                "total_revenue": 0,
+                "total_refunded": 0,
+                "total_failed": 0,
+                "clinic_share_total": 0,
+                "period_start": None,
+                "period_end": None,
+            }
+        else:
+            raise
+
     return {
         "clinic_id": clinic_id,
         "active_doctors": active_doctors,
         "total_appointments": int(dashboard.get("total_appointments", 0)),
         "completed_consultations": int(dashboard.get("completed_consultations", 0)),
         "cancellations": int(dashboard.get("cancellations", 0)),
+        "payment_summary": payment_summary,
         "warnings": warnings,
     }
 
