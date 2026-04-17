@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models import User, Role, UserRole, AuthSession, OTPVerification, AccountStatusEnum
-from app.schemas import RegisterRequest, LoginRequest, OtpPurpose
+from app.schemas import RegisterRequest, LoginRequest, OtpPurpose, RoleEnum
 from app.services.patient_client import create_patient_profile
 from app.utils.hashing import hash_password, verify_password
 from app.utils.jwt import create_access_token, create_refresh_token, decode_token
@@ -40,6 +40,15 @@ def _primary_role(user: User) -> str:
     return "patient"
 
 
+def _create_patient_profile(user: User) -> None:
+    payload = {
+        "user_id": str(user.id),
+        "email": user.email,
+        "phone": user.phone,
+    }
+    create_patient_profile(payload)
+
+
 def register_user(data: RegisterRequest, db: Session) -> dict:
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -59,27 +68,18 @@ def register_user(data: RegisterRequest, db: Session) -> dict:
 
     user_role = UserRole(user_id=user.id, role_id=role.role_id)
     db.add(user_role)
+    db.commit()
+    db.refresh(user)
 
-    profile_payload = {
-        "user_id": str(user.id),
-        "email": data.email,
-        "phone": data.phone,
-    }
+    if role.role_name == RoleEnum.patient.value:
+        try:
+            _create_patient_profile(user)
+        except HTTPException:
+            db.delete(user)
+            db.commit()
+            raise
 
-    try:
-        create_patient_profile(profile_payload)
-        db.commit()
-        db.refresh(user)
-        return _serialize_user(user)
-    except HTTPException as exc:
-        db.rollback()
-        if exc.status_code in (status.HTTP_502_BAD_GATEWAY, status.HTTP_503_SERVICE_UNAVAILABLE):
-            raise HTTPException(
-                status_code=exc.status_code,
-                detail="Registration succeeded in auth but failed to create patient profile. Please try again later.",
-            )
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
-
+    return _serialize_user(user)
 
 def create_verified_user(email: str, password: str, role_name: str, db: Session, phone: str | None = None) -> dict:
     if db.query(User).filter(User.email == email).first():
@@ -102,6 +102,15 @@ def create_verified_user(email: str, password: str, role_name: str, db: Session,
     db.add(user_role)
     db.commit()
     db.refresh(user)
+
+    if role.role_name == RoleEnum.patient.value:
+        try:
+            _create_patient_profile(user)
+        except HTTPException:
+            db.delete(user)
+            db.commit()
+            raise
+
     return _serialize_user(user)
 
 
