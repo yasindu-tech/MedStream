@@ -78,3 +78,20 @@ class StripeClient:
         return stripe.Webhook.construct_event(
             payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
         )
+
+    @staticmethod
+    def retrieve_checkout_session(session_id: str) -> Optional[dict]:
+        """
+        Retrieves a Stripe Checkout Session by ID.
+        Used for direct verification without webhooks.
+        """
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+            return {
+                "id": session.id,
+                "payment_status": session.payment_status,
+                "status": session.status,
+                "metadata": session.metadata
+            }
+        except Exception as e:
+            raise e

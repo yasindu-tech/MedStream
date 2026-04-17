@@ -14,7 +14,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Appointment
+from app.models import Appointment, AppointmentStatusHistory
 from app.schemas import AppointmentOutcomeResponse, BookedSlotResponse, InternalNoShowRequest, InternalTechnicalFailureRequest, MarkArrivedRequest
 from app.services.outcome import mark_arrived, mark_no_show, mark_technical_failure
 from app.services.policy import resolve_effective_policy
@@ -199,8 +199,20 @@ def internal_update_payment_status(
         raise HTTPException(status_code=404, detail="Appointment not found")
 
     if body.payment_status == "paid":
+        old_status = appointment.status
         appointment.payment_status = "paid"
         appointment.status = "confirmed"
+        
+        # Record history
+        history = AppointmentStatusHistory(
+            appointment_id=appointment_id,
+            old_status=old_status,
+            new_status="confirmed",
+            changed_by="payment-service",
+            reason="Payment confirmed via Stripe"
+        )
+        db.add(history)
+        
         db.commit()
         return {
             "appointment_id": str(appointment_id),
@@ -209,7 +221,19 @@ def internal_update_payment_status(
             "message": "Appointment confirmed after successful payment.",
         }
     elif body.payment_status == "failed":
+        old_status = appointment.status
         appointment.payment_status = "failed"
+        
+        # Record history for payment failure
+        history = AppointmentStatusHistory(
+            appointment_id=appointment_id,
+            old_status=old_status,
+            new_status=old_status,  # Status doesn't change, but we log the payment failure event
+            changed_by="payment-service",
+            reason="Payment failed via Stripe"
+        )
+        db.add(history)
+        
         db.commit()
         return {
             "appointment_id": str(appointment_id),
@@ -219,4 +243,28 @@ def internal_update_payment_status(
         }
     else:
         raise HTTPException(status_code=400, detail=f"Invalid payment_status: {body.payment_status}")
+
+
+@router.get("/appointments/{appointment_id}")
+def internal_get_appointment_details(
+    appointment_id: UUID = Path(...),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Returns basic appointment details for other services (e.g. payment-service)."""
+    appointment = (
+        db.query(Appointment)
+        .filter(Appointment.appointment_id == appointment_id)
+        .first()
+    )
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    return {
+        "appointment_id": str(appointment.appointment_id),
+        "doctor_name": appointment.doctor_name,
+        "appointment_date": appointment.appointment_date.isoformat(),
+        "start_time": appointment.start_time.strftime("%H:%M"),
+        "clinic_name": appointment.clinic_name,
+    }
+
 

@@ -34,6 +34,16 @@ class Settings(BaseSettings):
     STRIPE_CANCEL_URL: str = "http://localhost:3000/payment/cancel"
     ENABLE_STRIPE_MOCK: bool = True
 
+    CORS_ALLOWED_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        return [
+            origin.strip()
+            for origin in self.CORS_ALLOWED_ORIGINS.split(",")
+            if origin.strip()
+        ]
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
