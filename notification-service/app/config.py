@@ -8,12 +8,11 @@ class Settings(BaseSettings):
     JWT_SECRET: Optional[str] = None
     ALGORITHM: str = "HS256"
     
-    SMTP_HOST: str = "smtp.mailtrap.io"
+    SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
-    SMTP_USER: Optional[str] = None
-    SMTP_PASSWORD: Optional[str] = None
-    EMAIL_FROM: str = "noreply@medstream.com"
-    AUTH_SERVICE_URL: str = "http://auth-service:8000"
+    SMTP_USER: Optional[str] = "accessmap.org@gmail.com"
+    SMTP_PASSWORD: Optional[str] = "fqjg mral cgib ejfn"
+    EMAIL_FROM: str = "accessmap.org@gmail.com"
     
     ENVIRONMENT: str = "development"
     SERVICE_NAME: str = "notification-service"

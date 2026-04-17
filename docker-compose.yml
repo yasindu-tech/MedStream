@@ -104,6 +104,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@auth_db:5432/medstream_auth
       PATIENT_SERVICE_URL: http://patient-service:8000
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change-me-in-dev}
     ports:
       - "8001:8000"
     networks:
@@ -137,11 +138,15 @@ services:
     depends_on:
       admin_db:
         condition: service_started
+      appointment-service:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@admin_db:5432/medstream_admin
       AUTH_SERVICE_URL: http://auth-service:8000
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8000
       NOTIFICATION_SERVICE_URL: http://notification-service:8000
       LOGIN_URL: http://localhost:5173/login
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change-me-in-dev}
     ports:
       - "8003:8000"
     networks:
@@ -202,11 +207,6 @@ services:
         condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://dev_user:dev_password@finance_db:5432/medstream_finance
-      STRIPE_API_KEY: ${STRIPE_API_KEY:-}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
-      STRIPE_SUCCESS_URL: http://localhost:5173/payment/success?session_id={CHECKOUT_SESSION_ID}
-      STRIPE_CANCEL_URL: http://localhost:5173/payment/cancel
-      ENABLE_STRIPE_MOCK: ${ENABLE_STRIPE_MOCK:-false}
       JWT_SECRET: ${SECRET_KEY:-your-super-secret-key-change-in-production}
       JWT_ALGORITHM: HS256
       NOTIFICATION_SERVICE_URL: http://notification-service:8000
