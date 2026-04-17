@@ -20,6 +20,7 @@ GRANT ALL ON SCHEMA patientcare TO dev_user;
 CREATE TABLE IF NOT EXISTS patientcare.patients (
     patient_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id uuid,
+    email varchar(255),
     full_name varchar(255) NOT NULL,
     dob date,
     gender varchar(20),
@@ -27,9 +28,17 @@ CREATE TABLE IF NOT EXISTS patientcare.patients (
     phone varchar(30),
     address text,
     blood_group varchar(10),
+    profile_status varchar(30) NOT NULL DEFAULT 'active',
     created_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT uq_patients_nic_passport UNIQUE (nic_passport)
+    CONSTRAINT uq_patients_nic_passport UNIQUE (nic_passport),
+    CONSTRAINT uq_patients_email UNIQUE (email),
+    CONSTRAINT uq_patients_user_id UNIQUE (user_id)
 );
+
+ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS email varchar(255);
+ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS profile_status varchar(30) NOT NULL DEFAULT 'active';
+ALTER TABLE patientcare.patients ADD CONSTRAINT IF NOT EXISTS uq_patients_email UNIQUE (email);
+ALTER TABLE patientcare.patients ADD CONSTRAINT IF NOT EXISTS uq_patients_user_id UNIQUE (user_id);
 
 CREATE TABLE IF NOT EXISTS patientcare.allergies (
     allergy_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
