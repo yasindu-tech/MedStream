@@ -27,7 +27,7 @@ def _ensure_clinic_admin_scope(db: Session, user: dict, clinic_id: str) -> None:
         )
 
 
-@router.get("/clinics/{clinic_id}/dashboard", response_model=ClinicDashboardResponse)
+@router.get("/{clinic_id}/dashboard", response_model=ClinicDashboardResponse)
 def clinic_dashboard(
     clinic_id: UUID,
     db: Session = Depends(get_db),
