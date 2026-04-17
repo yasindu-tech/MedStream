@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 from typing import Optional
 from uuid import UUID
 
@@ -8,11 +9,21 @@ from fastapi import HTTPException, status
 from app.config import settings
 
 
+def _auth_service_internal_headers() -> dict[str, str]:
+    token = getattr(settings, "AUTH_SERVICE_INTERNAL_TOKEN", None) or os.getenv("AUTH_SERVICE_INTERNAL_TOKEN")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Auth service internal authentication is not configured.",
+        )
+    return {"X-Internal-Auth": token}
+
+
 def verify_doctor_registration(user_id: UUID) -> dict[str, str]:
     url = f"{settings.AUTH_SERVICE_URL.rstrip('/')}/internal/users/{user_id}"
     try:
         with httpx.Client(timeout=5.0) as client:
-            response = client.get(url)
+            response = client.get(url, headers=_auth_service_internal_headers())
             response.raise_for_status()
             data = response.json()
             if data.get("account_status") != "ACTIVE":
