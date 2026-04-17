@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
+from app.config import settings
 from app.models import Appointment, AppointmentStatusHistory, Patient
 from app.schemas import RescheduleAppointmentRequest, BookAppointmentResponse, BookAppointmentRequest
 from app.services.booking import _validate_slot_with_doctor_service, OCCUPIED_STATUSES
