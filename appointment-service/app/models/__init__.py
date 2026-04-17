@@ -47,6 +47,9 @@ class Appointment(Base):
     completed_by = Column(String(100), nullable=True)
     no_show_at = Column(DateTime(timezone=True), nullable=True)
     no_show_marked_by = Column(String(100), nullable=True)
+    technical_failure_at = Column(DateTime(timezone=True), nullable=True)
+    technical_failure_reason = Column(String, nullable=True)
+    technical_failure_marked_by = Column(String(100), nullable=True)
     cancellation_reason = Column(String, nullable=True)
     cancelled_by = Column(String(30), nullable=True)
     rescheduled_from_date = Column(Date, nullable=True)
@@ -86,6 +89,22 @@ class AppointmentStatusHistory(Base):
     changed_by = Column(String(100), nullable=True)
     reason = Column(String, nullable=True)
     changed_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class TelemedicineSession(Base):
+    __tablename__ = "telemedicine_sessions"
+    __table_args__ = {"schema": "patientcare"}
+
+    session_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    appointment_id = Column(UUID(as_uuid=True), nullable=False, unique=True)
+    provider_name = Column(String(100), nullable=True)
+    meeting_link = Column(String, nullable=True)
+    status = Column(String(30), nullable=False, default="scheduled")
+    session_version = Column(Integer, nullable=False, default=1)
+    token_version = Column(Integer, nullable=False, default=1)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    ended_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class AppointmentPolicy(Base):

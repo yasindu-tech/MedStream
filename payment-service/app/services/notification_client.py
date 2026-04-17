@@ -13,7 +13,7 @@ async def send_notification(event_type: str, user_id: str, payload: dict, priori
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.post(
-                f"{settings.NOTIFICATION_SERVICE_URL.rstrip('/')}/events",
+                f"{settings.NOTIFICATION_SERVICE_URL.rstrip('/')}/api/notifications/events",
                 json={
                     "event_type": event_type,
                     "user_id": user_id,
