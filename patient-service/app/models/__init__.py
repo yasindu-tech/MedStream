@@ -35,6 +35,24 @@ class Patient(Base):
     profile_status = Column(String(30), nullable=False, default="active")
     created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
+    @property
+    def profile_completion(self) -> int:
+        profile_fields = [
+            self.email,
+            self.full_name,
+            self.dob,
+            self.gender,
+            self.nic_passport,
+            self.phone,
+            self.address,
+            self.emergency_contact,
+            self.blood_group,
+            self.profile_image_url,
+        ]
+        filled = sum(1 for value in profile_fields if value)
+        total = len(profile_fields)
+        return int(round((filled / total) * 100)) if total else 0
+
     @classmethod
     def build_full_name(cls, email: str) -> str:
         return _default_full_name(email)

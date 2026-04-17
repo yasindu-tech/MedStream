@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -12,7 +12,15 @@ from app.schemas import PatientProfileResponse, PatientProfileUpdate
 router = APIRouter(tags=["Patient Profiles"])
 
 
-@router.get("/patients/by-user/{user_id}", response_model=PatientProfileResponse)
+@router.get("/me", response_model=PatientProfileResponse)
+def get_my_patient_profile(user_id: UUID = Query(..., description="Current patient user ID"), db: Session = Depends(get_db)) -> PatientProfileResponse:
+    patient = db.query(Patient).filter(Patient.user_id == user_id).first()
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient profile not found")
+    return patient
+
+
+@router.get("/by-user/{user_id}", response_model=PatientProfileResponse)
 def get_patient_profile_by_user_id(user_id: UUID, db: Session = Depends(get_db)) -> PatientProfileResponse:
     patient = db.query(Patient).filter(Patient.user_id == user_id).first()
     if not patient:
@@ -20,7 +28,7 @@ def get_patient_profile_by_user_id(user_id: UUID, db: Session = Depends(get_db))
     return patient
 
 
-@router.get("/patients/{patient_id}", response_model=PatientProfileResponse)
+@router.get("/{patient_id}", response_model=PatientProfileResponse)
 def get_patient_profile(patient_id: UUID, db: Session = Depends(get_db)) -> PatientProfileResponse:
     patient = db.query(Patient).filter(Patient.patient_id == patient_id).first()
     if not patient:
