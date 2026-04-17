@@ -9,7 +9,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import Appointment, Patient
+from app.models import Appointment, Patient, AppointmentStatusHistory
 from app.schemas import BookAppointmentRequest, BookAppointmentResponse
 from app.services.policy import resolve_effective_policy
 from app.services.telemedicine_client import provision_session_for_appointment
@@ -174,6 +174,17 @@ def book_appointment(
     )
 
     db.add(appointment)
+    db.flush() # Get ID for history record
+
+    # Record initial history
+    history = AppointmentStatusHistory(
+        appointment_id=appointment.appointment_id,
+        new_status=appt_status,
+        changed_by="patient",
+        reason="Appointment created by patient"
+    )
+    db.add(history)
+    
     db.commit()
     db.refresh(appointment)
 
