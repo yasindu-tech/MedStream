@@ -258,6 +258,7 @@ def create_doctor_availability(
         },
         changed_by=None,
     )
+    db.commit()
 
     logger.info(
         "Doctor availability created: doctor=%s clinic=%s day=%s date=%s %s-%s",
