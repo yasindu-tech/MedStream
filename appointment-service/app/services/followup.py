@@ -17,9 +17,10 @@ from app.services.booking import book_appointment, _validate_slot_with_doctor_se
 def _get_doctor_info_by_user(user_id: str) -> dict:
     """Call doctor-service to resolve a user_id to a doctor_id."""
     url = f"{settings.DOCTOR_SERVICE_URL}/internal/doctors/by-user/{user_id}"
+    headers = {"X-Internal-Service-Token": settings.INTERNAL_SERVICE_TOKEN}
     try:
         with httpx.Client(timeout=10.0) as client:
-            response = client.get(url)
+            response = client.get(url, headers=headers)
             response.raise_for_status()
             return response.json()
     except httpx.HTTPStatusError as exc:
@@ -220,7 +221,10 @@ def get_pending_followups(
             if doctor_id_str not in doctor_names:
                 url = f"{settings.DOCTOR_SERVICE_URL}/internal/doctors/{doctor_id_str}/profile"
                 try:
-                    resp = client.get(url)
+                    resp = client.get(
+                        url,
+                        headers={"X-Internal-Service-Token": settings.INTERNAL_SERVICE_TOKEN},
+                    )
                     if resp.status_code == 200:
                         doctor_names[doctor_id_str] = resp.json().get("full_name", "Unknown Doctor")
                     else:
