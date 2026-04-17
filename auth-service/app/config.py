@@ -2,6 +2,9 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     DATABASE_URL: str
+    AUTH_SERVICE_URL: str = "http://auth-service:8000"
+    APPOINTMENT_SERVICE_URL: str = "http://appointment-service:8000"
+    DOCTOR_SERVICE_URL: str = "http://doctor-service:8000"
     PATIENT_SERVICE_URL: str = "http://patient-service:8000"
     SECRET_KEY: str = "your-super-secret-key-change-in-production"
     ALGORITHM: str = "HS256"

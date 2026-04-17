@@ -1,7 +1,7 @@
 """Pydantic schemas for the doctor service."""
 from __future__ import annotations
 from uuid import UUID
-from typing import List, Optional
+from typing import List, Optional, Literal
 from pydantic import BaseModel
 
 
@@ -76,6 +76,62 @@ class DoctorProfileResponse(BaseModel):
     consultation_fee: Optional[str] = None
     profile_complete: bool
     clinics: List[DoctorProfileClinic]
+
+
+class VerificationDocumentItem(BaseModel):
+    name: str
+    url: str
+    uploaded_at: Optional[str] = None
+    status: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PendingDoctorItem(BaseModel):
+    doctor_id: UUID
+    full_name: str
+    specialization: Optional[str] = None
+    consultation_mode: Optional[str] = None
+    medical_registration_no: Optional[str] = None
+    verification_status: str
+    status: str
+    has_documents: bool
+    missing_documents: bool
+
+    class Config:
+        from_attributes = True
+
+
+class PendingDoctorListResponse(BaseModel):
+    results: List[PendingDoctorItem]
+    total: int
+
+
+class DoctorVerificationDetailsResponse(BaseModel):
+    doctor_id: UUID
+    full_name: str
+    medical_registration_no: Optional[str] = None
+    verification_status: str
+    status: str
+    verification_documents: List[VerificationDocumentItem]
+    missing_documents: bool
+    verification_rejection_reason: Optional[str] = None
+
+
+class DoctorVerificationActionRequest(BaseModel):
+    action: Literal["approve", "reject"]
+    reason: Optional[str] = None
+
+
+class DoctorSuspendRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+class DoctorVerificationActionResponse(BaseModel):
+    doctor_id: UUID
+    verification_status: str
+    verification_rejection_reason: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

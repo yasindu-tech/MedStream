@@ -106,6 +106,19 @@ class DoctorClinicAssignment(Base):
     status = Column(String(30), nullable=False, default="active")
 
 
+class DoctorAssignmentHistory(Base):
+    __tablename__ = "doctor_assignment_history"
+    __table_args__ = {"schema": "admin"}
+
+    history_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    doctor_id = Column(UUID(as_uuid=True), nullable=False)
+    clinic_id = Column(UUID(as_uuid=True), nullable=False)
+    action = Column(String(50), nullable=False)
+    changed_by = Column(String(100), nullable=True)
+    reason = Column(Text, nullable=True)
+    changed_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class DoctorAvailability(Base):
     __tablename__ = "doctor_availability"
     __table_args__ = {"schema": "admin"}

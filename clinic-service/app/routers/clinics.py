@@ -27,7 +27,7 @@ def create_clinic_endpoint(
     db: Session = Depends(get_db),
     _user: dict = Depends(require_roles("admin")),
 ) -> ClinicResponse:
-    clinic = create_clinic(db=db, payload=payload)
+    clinic = create_clinic(db=db, payload=payload, created_by=_user["sub"])
     return ClinicResponse.model_validate(clinic)
 
 

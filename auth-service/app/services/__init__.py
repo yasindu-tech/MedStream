@@ -6,7 +6,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models import User, Role, UserRole, AuthSession, OTPVerification
+from app.models import User, Role, UserRole, AuthSession, OTPVerification, AccountStatusEnum
 from app.schemas import RegisterRequest, LoginRequest, OtpPurpose
 from app.services.patient_client import create_patient_profile
 from app.utils.hashing import hash_password, verify_password
@@ -243,6 +243,19 @@ def deactivate_user(user_id: UUID, db: Session) -> dict:
         return {"success": True}
 
     setattr(user, "account_status", "INACTIVE")
+    db.commit()
+    return {"success": True}
+
+
+def suspend_user(user_id: UUID, reason: str | None, db: Session) -> dict:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if cast(str, user.account_status) == AccountStatusEnum.SUSPENDED.value:
+        return {"success": True}
+
+    setattr(user, "account_status", AccountStatusEnum.SUSPENDED.value)
+    setattr(user, "suspension_reason", reason)
     db.commit()
     return {"success": True}
 

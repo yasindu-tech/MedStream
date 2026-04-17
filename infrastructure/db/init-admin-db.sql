@@ -81,6 +81,16 @@ CREATE TABLE IF NOT EXISTS admin.clinic_staff_history (
     changed_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS admin.doctor_assignment_history (
+    history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    doctor_id uuid NOT NULL,
+    clinic_id uuid NOT NULL,
+    action varchar(50) NOT NULL,
+    changed_by varchar(100),
+    reason text,
+    changed_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS admin.clinic_status_history (
     history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     clinic_id uuid NOT NULL,
@@ -100,6 +110,9 @@ CREATE TABLE IF NOT EXISTS admin.doctors (
     consultation_mode        varchar(40),
     verification_status      varchar(30) NOT NULL DEFAULT 'verified',
     status                   varchar(30) NOT NULL DEFAULT 'active',
+    verification_documents   jsonb,
+    verification_rejection_reason text,
+    suspension_reason        text,
     bio                      text,
     experience_years         int,
     qualifications           text,
