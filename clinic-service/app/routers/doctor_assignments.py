@@ -39,7 +39,7 @@ def _ensure_clinic_admin_scope(db: Session, user: dict, clinic_id: UUID) -> None
         )
 
 
-@router.get("/clinics/{clinic_id}/doctors/available", response_model=List[AvailableDoctorResponse])
+@router.get("/{clinic_id}/doctors/available", response_model=List[AvailableDoctorResponse])
 def list_available_doctors_endpoint(
     clinic_id: UUID,
     specialty: str | None = Query(None, description="Filter by specialization"),
@@ -50,7 +50,7 @@ def list_available_doctors_endpoint(
     return [AvailableDoctorResponse.model_validate(doctor) for doctor in doctors]
 
 
-@router.post("/clinics/{clinic_id}/doctors", response_model=ClinicDoctorResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{clinic_id}/doctors", response_model=ClinicDoctorResponse, status_code=status.HTTP_201_CREATED)
 def assign_doctor_to_clinic_endpoint(
     clinic_id: UUID,
     payload: DoctorAssignmentRequest,
@@ -80,7 +80,7 @@ def assign_doctor_to_clinic_endpoint(
     )
 
 
-@router.get("/clinics/{clinic_id}/doctors", response_model=List[ClinicDoctorResponse])
+@router.get("/{clinic_id}/doctors", response_model=List[ClinicDoctorResponse])
 def list_clinic_doctors_endpoint(
     clinic_id: UUID,
     db: Session = Depends(get_db),
@@ -113,7 +113,7 @@ def list_clinic_doctors_endpoint(
     return result
 
 
-@router.delete("/clinics/{clinic_id}/doctors/{doctor_id}", response_model=ClinicDoctorResponse)
+@router.delete("/{clinic_id}/doctors/{doctor_id}", response_model=ClinicDoctorResponse)
 def remove_doctor_from_clinic_endpoint(
     clinic_id: UUID,
     doctor_id: UUID,
