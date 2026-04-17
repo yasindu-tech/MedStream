@@ -38,7 +38,7 @@ def _ensure_clinic_admin_scope(db: Session, user: dict, clinic_id: str) -> None:
 
 
 @router.post(
-    "/clinics/{clinic_id}/staff",
+    "/{clinic_id}/staff",
     response_model=CreateClinicStaffResponse,
     status_code=status.HTTP_201_CREATED,
 )
@@ -62,7 +62,7 @@ def create_clinic_staff_endpoint(
     )
 
 
-@router.get("/clinics/{clinic_id}/staff", response_model=List[ClinicStaffResponse])
+@router.get("/{clinic_id}/staff", response_model=List[ClinicStaffResponse])
 def list_clinic_staff_endpoint(
     clinic_id: str,
     db: Session = Depends(get_db),
@@ -75,7 +75,7 @@ def list_clinic_staff_endpoint(
     ]
 
 
-@router.patch("/clinics/{clinic_id}/staff/{staff_id}", response_model=ClinicStaffResponse)
+@router.patch("/{clinic_id}/staff/{staff_id}", response_model=ClinicStaffResponse)
 def update_clinic_staff_endpoint(
     clinic_id: str,
     staff_id: UUID,
@@ -94,7 +94,7 @@ def update_clinic_staff_endpoint(
     return ClinicStaffResponse.model_validate(staff)
 
 
-@router.delete("/clinics/{clinic_id}/staff/{staff_id}", response_model=ClinicStaffResponse)
+@router.delete("/{clinic_id}/staff/{staff_id}", response_model=ClinicStaffResponse)
 def remove_clinic_staff_endpoint(
     clinic_id: str,
     staff_id: UUID,
