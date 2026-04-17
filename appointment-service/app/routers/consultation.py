@@ -238,7 +238,7 @@ def doctor_patient_summary(
 @router.post("/{appointment_id}/patient-documents", response_model=PatientDocumentResponse, status_code=201)
 def upload_patient_document(
     appointment_id: UUID = Path(...),
-    request: PatientDocumentRequest = Depends(),
+    request: PatientDocumentRequest,
     user: dict = Depends(require_roles("doctor")),
     db: Session = Depends(get_db),
 ) -> PatientDocumentResponse:
