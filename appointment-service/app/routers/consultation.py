@@ -79,8 +79,8 @@ def reject_appointment_request(
 
 @router.post("/{appointment_id}/notes", response_model=AppointmentNoteResponse, status_code=201)
 def add_appointment_note(
-    appointment_id: UUID = Path(...),
     request: AppointmentNoteRequest,
+    appointment_id: UUID = Path(...),
     user: dict = Depends(require_roles("doctor")),
     db: Session = Depends(get_db),
 ) -> AppointmentNoteResponse:
@@ -237,8 +237,8 @@ def doctor_patient_summary(
 
 @router.post("/{appointment_id}/patient-documents", response_model=PatientDocumentResponse, status_code=201)
 def upload_patient_document(
-    appointment_id: UUID = Path(...),
     request: PatientDocumentRequest,
+    appointment_id: UUID = Path(...),
     user: dict = Depends(require_roles("doctor")),
     db: Session = Depends(get_db),
 ) -> PatientDocumentResponse:
