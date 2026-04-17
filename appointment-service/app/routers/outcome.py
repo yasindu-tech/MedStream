@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.middleware import require_roles
-from app.schemas import AppointmentOutcomeResponse, MarkArrivedRequest
-from app.services.outcome import mark_arrived, mark_completed
+from app.schemas import AppointmentOutcomeResponse, MarkArrivedRequest, MarkTechnicalFailureRequest
+from app.services.outcome import mark_arrived, mark_completed, mark_technical_failure
 
 router = APIRouter(tags=["Appointment Outcomes"])
 
@@ -54,4 +54,26 @@ def mark_completed_endpoint(
         status=appt.status,
         changed_at=(appt.completed_at or datetime.now()).isoformat(),
         message="Appointment marked as completed",
+    )
+
+
+@router.post("/appointments/{appointment_id}/technical-failure", response_model=AppointmentOutcomeResponse)
+def mark_technical_failure_endpoint(
+    request: MarkTechnicalFailureRequest,
+    appointment_id: UUID = Path(...),
+    user: dict = Depends(require_roles("doctor", "patient", "staff", "admin")),
+    db: Session = Depends(get_db),
+) -> AppointmentOutcomeResponse:
+    appt = mark_technical_failure(
+        db,
+        appointment_id=appointment_id,
+        actor_role=user["role"],
+        actor_user_id=user["sub"],
+        reason=request.reason,
+    )
+    return AppointmentOutcomeResponse(
+        appointment_id=appt.appointment_id,
+        status=appt.status,
+        changed_at=(appt.technical_failure_at or datetime.now()).isoformat(),
+        message="Appointment marked as technical failure",
     )

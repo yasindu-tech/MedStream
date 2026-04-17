@@ -17,8 +17,9 @@ from app.schemas import (
     AppointmentStatusHistoryItem,
     CancelAppointmentRequest,
     MarkNoShowRequest,
+    TelemedicineLiveStatusPaginatedResponse,
 )
-from app.services.admin import get_appointment_stats, get_status_history_for_admin, list_appointments_for_admin
+from app.services.admin import get_appointment_stats, get_live_telemedicine_statuses, get_status_history_for_admin, list_appointments_for_admin
 from app.services.cancellation import cancel_appointment
 from app.services.outcome import mark_no_show
 
@@ -113,7 +114,43 @@ def admin_get_status_history(
 def admin_statistics(
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
+    clinic_id: Optional[UUID] = Query(None),
+    doctor_id: Optional[UUID] = Query(None),
+    outcome: Optional[str] = Query(None),
     user: dict = Depends(require_roles("admin", "staff")),
     db: Session = Depends(get_db),
 ) -> AppointmentStatsResponse:
-    return get_appointment_stats(db, user=user, date_from=date_from, date_to=date_to)
+    return get_appointment_stats(
+        db,
+        user=user,
+        date_from=date_from,
+        date_to=date_to,
+        clinic_id=clinic_id,
+        doctor_id=doctor_id,
+        outcome=outcome,
+    )
+
+
+@router.get("/telemedicine/live-statuses", response_model=TelemedicineLiveStatusPaginatedResponse)
+def admin_live_telemedicine_statuses(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    clinic_id: Optional[UUID] = Query(None),
+    doctor_id: Optional[UUID] = Query(None),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    outcome: Optional[str] = Query(None),
+    user: dict = Depends(require_roles("admin", "staff")),
+    db: Session = Depends(get_db),
+) -> TelemedicineLiveStatusPaginatedResponse:
+    return get_live_telemedicine_statuses(
+        db,
+        user=user,
+        page=page,
+        size=size,
+        clinic_id=clinic_id,
+        doctor_id=doctor_id,
+        date_from=date_from,
+        date_to=date_to,
+        outcome=outcome,
+    )
