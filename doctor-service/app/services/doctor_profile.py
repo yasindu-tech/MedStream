@@ -1,7 +1,7 @@
 """Doctor profile retrieval with slot computation and audit support."""
 from __future__ import annotations
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, List, Optional
 from uuid import UUID
 
@@ -125,8 +125,8 @@ def _load_doctor(db: Session, doctor_id: UUID) -> Optional[Doctor]:
 
 
 def _doctor_has_blocked_leave(db: Session, doctor_id: UUID, target_date: date, clinic_id: UUID) -> List[DoctorLeave]:
-    start_of_day = datetime.combine(target_date, datetime.min.time())
-    end_of_day = datetime.combine(target_date, datetime.max.time())
+    start_of_day = datetime.combine(target_date, datetime.min.time(), tzinfo=timezone.utc)
+    end_of_day = datetime.combine(target_date, datetime.max.time(), tzinfo=timezone.utc)
     return (
         db.query(DoctorLeave)
         .filter(
@@ -141,8 +141,12 @@ def _doctor_has_blocked_leave(db: Session, doctor_id: UUID, target_date: date, c
 
 
 def _slot_overlaps_leave(start_time: str, end_time: str, leaves: List[DoctorLeave], target_date: date) -> bool:
-    slot_start = datetime.strptime(f"{target_date.isoformat()} {start_time}", "%Y-%m-%d %H:%M")
-    slot_end = datetime.strptime(f"{target_date.isoformat()} {end_time}", "%Y-%m-%d %H:%M")
+    slot_start = datetime.strptime(
+        f"{target_date.isoformat()} {start_time}", "%Y-%m-%d %H:%M"
+    ).replace(tzinfo=timezone.utc)
+    slot_end = datetime.strptime(
+        f"{target_date.isoformat()} {end_time}", "%Y-%m-%d %H:%M"
+    ).replace(tzinfo=timezone.utc)
     for leave in leaves:
         if slot_start < leave.end_datetime and leave.start_datetime < slot_end:
             return True
