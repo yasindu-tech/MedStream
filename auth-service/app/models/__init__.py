@@ -29,6 +29,7 @@ class User(Base):
     __table_args__ = {"schema": "auth"}
 
     id = Column("user_id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    full_name = Column(String, nullable=True)
     email = Column(String, unique=True, nullable=False, index=True)
     phone = Column(String, unique=True, nullable=True)
     password_hash = Column(String, nullable=False)

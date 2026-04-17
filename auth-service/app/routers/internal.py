@@ -10,6 +10,7 @@ from app.services import create_verified_user
 
 
 class ClinicAdminOnboardingRequest(BaseModel):
+    full_name: Optional[str] = None
     email: EmailStr
     password: str
     phone: Optional[str] = None
@@ -32,6 +33,7 @@ router = APIRouter(tags=["internal"])
 @router.post("/clinic-admin", response_model=ClinicAdminOnboardingResponse, status_code=status.HTTP_201_CREATED)
 def create_clinic_admin_user(data: ClinicAdminOnboardingRequest, db: Session = Depends(get_db)):
     user = create_verified_user(
+        full_name=data.full_name,
         email=data.email,
         password=data.password,
         phone=data.phone,

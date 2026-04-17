@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import date, datetime
-from sqlalchemy import Column, Date, DateTime, String
+from sqlalchemy import JSON, Column, Date, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 
@@ -56,3 +56,54 @@ class Patient(Base):
     @classmethod
     def build_full_name(cls, email: str) -> str:
         return _default_full_name(email)
+
+
+class Allergy(Base):
+    __tablename__ = "allergies"
+    __table_args__ = {"schema": "patientcare"}
+
+    allergy_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    allergy_name = Column(String(255), nullable=False)
+    note = Column(String, nullable=True)
+
+
+class ChronicCondition(Base):
+    __tablename__ = "chronic_conditions"
+    __table_args__ = {"schema": "patientcare"}
+
+    condition_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    condition_name = Column(String(255), nullable=False)
+    note = Column(String, nullable=True)
+
+
+class Prescription(Base):
+    __tablename__ = "prescriptions"
+    __table_args__ = {"schema": "patientcare"}
+
+    prescription_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    appointment_id = Column(UUID(as_uuid=True), nullable=False)
+    patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    doctor_id = Column(UUID(as_uuid=True), nullable=True)
+    clinic_id = Column(UUID(as_uuid=True), nullable=True)
+    medications = Column(JSON, nullable=False, default=list)
+    instructions = Column("notes", Text, nullable=True)
+    status = Column(String(30), nullable=False, default="draft")
+    issued_at = Column(DateTime(timezone=True), nullable=True)
+    finalized_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class MedicalDocument(Base):
+    __tablename__ = "medical_documents"
+    __table_args__ = {"schema": "patientcare"}
+
+    document_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    document_type = Column(String(100), nullable=False)
+    file_name = Column(String(255), nullable=False)
+    file_url = Column(Text, nullable=False)
+    visibility = Column(String(30), nullable=False, default="public")
+    uploaded_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
