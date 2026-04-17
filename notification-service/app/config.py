@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
     EMAIL_FROM: str = "noreply@medstream.com"
+    AUTH_SERVICE_URL: str = "http://auth-service:8000"
     
     ENVIRONMENT: str = "development"
     SERVICE_NAME: str = "notification-service"

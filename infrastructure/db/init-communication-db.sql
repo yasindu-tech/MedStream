@@ -83,6 +83,77 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Backward-compatible migration for older notification_preferences schema variants.
+-- Legacy shape:
+--   (preference_id, user_id, channel, enabled, created_at) with UNIQUE(user_id, channel)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'communication'
+          AND table_name = 'notification_preferences'
+          AND column_name = 'channel'
+    ) AND NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'communication'
+          AND table_name = 'notification_preferences'
+          AND column_name = 'email_enabled'
+    ) THEN
+        ALTER TABLE communication.notification_preferences
+            ADD COLUMN email_enabled BOOLEAN,
+            ADD COLUMN sms_enabled BOOLEAN,
+            ADD COLUMN in_app_enabled BOOLEAN,
+            ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+        UPDATE communication.notification_preferences p
+        SET email_enabled = COALESCE(
+                (SELECT MAX(CASE WHEN channel = 'email' THEN enabled::int END)::boolean
+                 FROM communication.notification_preferences p2
+                 WHERE p2.user_id = p.user_id),
+                TRUE
+            ),
+            sms_enabled = COALESCE(
+                (SELECT MAX(CASE WHEN channel = 'sms' THEN enabled::int END)::boolean
+                 FROM communication.notification_preferences p2
+                 WHERE p2.user_id = p.user_id),
+                TRUE
+            ),
+            in_app_enabled = COALESCE(
+                (SELECT MAX(CASE WHEN channel = 'in_app' THEN enabled::int END)::boolean
+                 FROM communication.notification_preferences p2
+                 WHERE p2.user_id = p.user_id),
+                TRUE
+            );
+
+        DELETE FROM communication.notification_preferences t
+        USING communication.notification_preferences d
+        WHERE t.user_id = d.user_id
+          AND t.preference_id > d.preference_id;
+
+        ALTER TABLE communication.notification_preferences
+            DROP CONSTRAINT IF EXISTS uq_notification_pref;
+
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_notification_preferences_user_id
+            ON communication.notification_preferences (user_id);
+
+        ALTER TABLE communication.notification_preferences
+            DROP COLUMN IF EXISTS channel,
+            DROP COLUMN IF EXISTS enabled,
+            DROP COLUMN IF EXISTS created_at;
+
+        ALTER TABLE communication.notification_preferences
+            ALTER COLUMN email_enabled SET DEFAULT TRUE,
+            ALTER COLUMN sms_enabled SET DEFAULT TRUE,
+            ALTER COLUMN in_app_enabled SET DEFAULT TRUE,
+            ALTER COLUMN email_enabled SET NOT NULL,
+            ALTER COLUMN sms_enabled SET NOT NULL,
+            ALTER COLUMN in_app_enabled SET NOT NULL;
+    END IF;
+END
+$$;
+
 -- Grant privileges on all existing and future tables
 GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA communication TO dev_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA communication TO dev_user;

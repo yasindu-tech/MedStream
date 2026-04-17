@@ -27,7 +27,7 @@ app.add_middleware(
 # Internal: no auth, service-to-service only (doctor-service calls this)
 app.include_router(internal_router, prefix="/internal")
 
-# Public: JWT required, exposed via nginx at /appointments/doctors/search
+# Public: no JWT required, exposed via nginx at /appointments/doctors/search
 app.include_router(search_router)
 
 # Public: JWT required, exposed via nginx at /appointments/appointments/book

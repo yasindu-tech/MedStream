@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 # ---------------------------------------------------------------------------
@@ -101,11 +101,13 @@ class DoctorProfileResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class BookAppointmentRequest(BaseModel):
-    doctor_id: UUID
-    clinic_id: UUID
+    model_config = ConfigDict(populate_by_name=True)
+
+    doctor_id: UUID = Field(validation_alias=AliasChoices("doctor_id", "doctorId"))
+    clinic_id: UUID = Field(validation_alias=AliasChoices("clinic_id", "clinicId"))
     date: date              # YYYY-MM-DD
-    start_time: str         # "HH:MM"
-    consultation_type: str  # "physical" or "telemedicine"
+    start_time: str = Field(validation_alias=AliasChoices("start_time", "startTime"))         # "HH:MM"
+    consultation_type: str = Field(validation_alias=AliasChoices("consultation_type", "consultationType"))  # "physical" or "telemedicine"
 
 
 class BookAppointmentResponse(BaseModel):
@@ -313,10 +315,19 @@ class MarkArrivedRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class MarkTechnicalFailureRequest(BaseModel):
+    reason: Optional[str] = None
+
+
 class InternalNoShowRequest(BaseModel):
     reason: Optional[str] = None
     mark_by: str = "system"
     observed_join_within_grace: bool = False
+
+
+class InternalTechnicalFailureRequest(BaseModel):
+    reason: Optional[str] = None
+    mark_by: str = "system"
 
 
 class AppointmentStatusHistoryItem(BaseModel):
@@ -333,6 +344,36 @@ class AppointmentStatsResponse(BaseModel):
     total_cancellations: int
     total_no_shows: int
     total_completed: int
+    total_failed_sessions: int
+    average_duration_minutes: Optional[float] = None
+
+
+class TelemedicineLiveStatusItem(BaseModel):
+    session_id: UUID
+    appointment_id: UUID
+    doctor_id: Optional[UUID] = None
+    doctor_name: Optional[str] = None
+    clinic_id: Optional[UUID] = None
+    clinic_name: Optional[str] = None
+    patient_id: UUID
+    patient_name: str
+    appointment_date: date
+    start_time: str
+    end_time: str
+    appointment_status: str
+    session_status: str
+    provider_name: Optional[str] = None
+    duration_minutes: Optional[float] = None
+    started_at: Optional[str] = None
+    ended_at: Optional[str] = None
+
+
+class TelemedicineLiveStatusPaginatedResponse(BaseModel):
+    items: list[TelemedicineLiveStatusItem]
+    total: int
+    page: int
+    size: int
+    has_more: bool
 
 
 class AppointmentPolicyResponse(BaseModel):

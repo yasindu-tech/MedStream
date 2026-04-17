@@ -1,19 +1,12 @@
-import os
-import secrets
-from typing import List, Optional
+from typing import Optional
 from uuid import UUID
-
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User
-from app.services import create_verified_user, deactivate_user, suspend_user
-from app.services.appointment_client import (
-    get_doctor_pending_future_appointments,
-    get_patient_pending_future_appointments,
-)
+from app.services import create_verified_user
 
 
 class ClinicAdminOnboardingRequest(BaseModel):
@@ -27,43 +20,13 @@ class ClinicAdminOnboardingResponse(BaseModel):
     email: EmailStr
 
 
-class ClinicStaffOnboardingRequest(BaseModel):
+class InternalUserContactResponse(BaseModel):
+    user_id: UUID
     email: EmailStr
-    password: str
     phone: Optional[str] = None
 
 
-class ClinicStaffOnboardingResponse(BaseModel):
-    id: str
-    email: EmailStr
-
-
-class SuspendUserRequest(BaseModel):
-    reason: Optional[str] = None
-
-
-class UserStatusResponse(BaseModel):
-    id: UUID
-    roles: List[str]
-    account_status: str
-
-
-def require_internal_service_auth(x_internal_auth: Optional[str] = Header(default=None)) -> None:
-    expected_token = os.getenv("INTERNAL_API_TOKEN")
-    if not expected_token:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Internal service authentication is not configured.",
-        )
-
-    if not x_internal_auth or not secrets.compare_digest(x_internal_auth, expected_token):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized internal service request.",
-        )
-
-
-router = APIRouter(tags=["internal"], dependencies=[Depends(require_internal_service_auth)])
+router = APIRouter(tags=["internal"])
 
 
 @router.post("/clinic-admin", response_model=ClinicAdminOnboardingResponse, status_code=status.HTTP_201_CREATED)
@@ -78,68 +41,13 @@ def create_clinic_admin_user(data: ClinicAdminOnboardingRequest, db: Session = D
     return {"id": str(user["id"]), "email": user["email"]}
 
 
-@router.post("/clinic-admin/{user_id}/deactivate", status_code=status.HTTP_200_OK)
-def deactivate_clinic_admin_user(user_id: UUID, db: Session = Depends(get_db)):
-    from app.services import deactivate_user
-
-    deactivate_user(user_id, db)
-    return {"success": True}
-
-
-@router.post("/clinic-staff", response_model=ClinicStaffOnboardingResponse, status_code=status.HTTP_201_CREATED)
-def create_clinic_staff_user(data: ClinicStaffOnboardingRequest, db: Session = Depends(get_db)):
-    user = create_verified_user(
-        email=data.email,
-        password=data.password,
-        phone=data.phone,
-        role_name="clinic_staff",
-        db=db,
-    )
-    return {"id": str(user["id"]), "email": user["email"]}
-
-
-@router.post("/clinic-staff/{user_id}/deactivate", status_code=status.HTTP_200_OK)
-def deactivate_clinic_staff_user(user_id: UUID, db: Session = Depends(get_db)):
-    from app.services import deactivate_user
-
-    deactivate_user(user_id, db)
-    return {"success": True}
-
-
-@router.post("/users/{user_id}/suspend", status_code=status.HTTP_200_OK)
-def suspend_user_account(user_id: UUID, payload: SuspendUserRequest, db: Session = Depends(get_db)):
+@router.get("/users/{user_id}", response_model=InternalUserContactResponse)
+def get_user_contact(user_id: UUID, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    if "doctor" in user.role_names:
-        pending = get_doctor_pending_future_appointments(str(user_id))
-        if pending > 0:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Doctor has active or upcoming consultations and cannot be suspended.",
-            )
-
-    if "patient" in user.role_names:
-        pending = get_patient_pending_future_appointments(str(user_id))
-        if pending > 0:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Patient has active or upcoming consultations and cannot be suspended.",
-            )
-
-    suspend_user(user_id, reason=payload.reason, db=db)
-    return {"success": True}
-
-
-@router.get("/users/{user_id}", response_model=UserStatusResponse)
-def get_user_status(user_id: UUID, db: Session = Depends(get_db)) -> UserStatusResponse:
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    return UserStatusResponse(
-        id=user.id,
-        roles=user.role_names,
-        account_status=user.account_status,
-    )
+    return {
+        "user_id": user.id,
+        "email": user.email,
+        "phone": user.phone,
+    }
