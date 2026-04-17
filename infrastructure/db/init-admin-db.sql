@@ -54,11 +54,51 @@ CREATE TABLE IF NOT EXISTS admin.clinic_staff (
     staff_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     clinic_id uuid NOT NULL,
     user_id uuid,
+    staff_email varchar(255),
+    staff_name varchar(255),
+    staff_phone varchar(30),
     staff_role varchar(100),
     status varchar(30) NOT NULL DEFAULT 'active',
     created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz,
+    updated_by varchar(100),
     CONSTRAINT fk_clinic_staff_clinic
         FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS admin.clinic_staff_history (
+    history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    staff_id uuid NOT NULL,
+    clinic_id uuid NOT NULL,
+    user_id uuid,
+    staff_email varchar(255),
+    staff_name varchar(255),
+    staff_phone varchar(30),
+    staff_role varchar(100),
+    status varchar(30) NOT NULL,
+    action varchar(50) NOT NULL,
+    changed_by varchar(100),
+    changed_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS admin.doctor_assignment_history (
+    history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    doctor_id uuid NOT NULL,
+    clinic_id uuid NOT NULL,
+    action varchar(50) NOT NULL,
+    changed_by varchar(100),
+    reason text,
+    changed_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS admin.clinic_status_history (
+    history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    clinic_id uuid NOT NULL,
+    old_status varchar(30),
+    new_status varchar(30) NOT NULL,
+    changed_by varchar(100),
+    reason text,
+    changed_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS admin.doctors (
@@ -70,6 +110,9 @@ CREATE TABLE IF NOT EXISTS admin.doctors (
     consultation_mode        varchar(40),
     verification_status      varchar(30) NOT NULL DEFAULT 'verified',
     status                   varchar(30) NOT NULL DEFAULT 'active',
+    verification_documents   jsonb,
+    verification_rejection_reason text,
+    suspension_reason        text,
     bio                      text,
     experience_years         int,
     qualifications           text,
@@ -84,6 +127,11 @@ ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS experience_years    int;
 ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS qualifications      text;
 ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS profile_image_url   text;
 ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS consultation_fee    numeric(10,2);
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS specializations      jsonb;
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS primary_specialization varchar(120);
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS verification_documents jsonb;
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS verification_rejection_reason text;
+ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS suspension_reason    text;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_doctors_medical_registration_no
     ON admin.doctors (medical_registration_no)
@@ -113,6 +161,22 @@ CREATE TABLE IF NOT EXISTS admin.doctor_availability (
     created_at        timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT fk_avail_doctor FOREIGN KEY (doctor_id) REFERENCES admin.doctors(doctor_id) ON DELETE CASCADE,
     CONSTRAINT fk_avail_clinic FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
+);
+
+-- Ensure newer scheduling columns exist on databases created before one-time date support
+ALTER TABLE admin.doctor_availability ADD COLUMN IF NOT EXISTS date date;
+
+CREATE TABLE IF NOT EXISTS admin.doctor_leave (
+    leave_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    doctor_id       uuid NOT NULL,
+    clinic_id       uuid,
+    start_datetime  timestamptz NOT NULL,
+    end_datetime    timestamptz NOT NULL,
+    reason          text,
+    status          varchar(30) NOT NULL DEFAULT 'active',
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT fk_leave_doctor FOREIGN KEY (doctor_id) REFERENCES admin.doctors(doctor_id) ON DELETE CASCADE,
+    CONSTRAINT fk_leave_clinic FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_doctor_availability_slot
@@ -227,6 +291,20 @@ VALUES
     ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'thursday',  '09:00', '14:00', 20, 'physical', 'active'),
     ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'saturday',  '09:00', '13:00', 20, 'physical', 'active')
 ON CONFLICT DO NOTHING;
+
+-- Ensure Dr. Anura is telemedicine-enabled (weekday afternoon slots)
+INSERT INTO admin.doctor_availability (doctor_id, clinic_id, day_of_week, start_time, end_time, slot_duration, consultation_type, status)
+VALUES
+    ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'monday',    '14:00', '17:00', 30, 'telemedicine', 'active'),
+    ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'tuesday',   '14:00', '17:00', 30, 'telemedicine', 'active'),
+    ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'wednesday', '14:00', '17:00', 30, 'telemedicine', 'active'),
+    ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'thursday',  '14:00', '17:00', 30, 'telemedicine', 'active'),
+    ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'friday',    '14:00', '17:00', 30, 'telemedicine', 'active')
+ON CONFLICT DO NOTHING;
+
+UPDATE admin.doctors
+SET consultation_mode = 'telemedicine'
+WHERE doctor_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 
 INSERT INTO admin.clinic_payment_accounts (clinic_id, provider_name, account_reference, verification_status)
 VALUES

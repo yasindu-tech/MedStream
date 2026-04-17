@@ -49,11 +49,17 @@ async def create_event(event: EventCreate, db: AsyncSession = Depends(get_db)):
 
 @router.get("/queue/status/{queue_id}", response_model=QueueStatusResponse)
 async def get_queue_status(queue_id: UUID, db: AsyncSession = Depends(get_db)):
-    stmt = select(NotificationQueue).where(NotificationQueue.id == queue_id)
+    stmt = select(NotificationQueue).where(NotificationQueue.notification_id == queue_id)
     result = await db.execute(stmt)
     item = result.scalar_one_or_none()
     
     if not item:
         raise HTTPException(status_code=404, detail="Queue item not found")
         
-    return item
+    return {
+        "notification_id": item.notification_id,
+        "status": item.status,
+        "channel": item.channel,
+        "sent_at": item.sent_at,
+        "created_at": item.created_at,
+    }

@@ -16,20 +16,38 @@ GRANT CONNECT ON DATABASE medstream_patientcare TO dev_user;
 
 CREATE SCHEMA IF NOT EXISTS patientcare;
 GRANT ALL ON SCHEMA patientcare TO dev_user;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA patientcare TO dev_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA patientcare TO dev_user;
+GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA patientcare TO dev_user;
 
 CREATE TABLE IF NOT EXISTS patientcare.patients (
     patient_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id uuid,
+    email varchar(255),
     full_name varchar(255) NOT NULL,
     dob date,
     gender varchar(20),
     nic_passport varchar(50),
     phone varchar(30),
     address text,
+    emergency_contact varchar(255),
+    profile_image_url text,
+    pending_email varchar(255),
     blood_group varchar(10),
+    profile_status varchar(30) NOT NULL DEFAULT 'active',
     created_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT uq_patients_nic_passport UNIQUE (nic_passport)
+    CONSTRAINT uq_patients_nic_passport UNIQUE (nic_passport),
+    CONSTRAINT uq_patients_email UNIQUE (email),
+    CONSTRAINT uq_patients_user_id UNIQUE (user_id)
 );
+
+ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS email varchar(255);
+ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS profile_status varchar(30) NOT NULL DEFAULT 'active';
+ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS emergency_contact varchar(255);
+ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS profile_image_url text;
+ALTER TABLE patientcare.patients ADD COLUMN IF NOT EXISTS pending_email varchar(255);
+ALTER TABLE patientcare.patients ADD CONSTRAINT IF NOT EXISTS uq_patients_email UNIQUE (email);
+ALTER TABLE patientcare.patients ADD CONSTRAINT IF NOT EXISTS uq_patients_user_id UNIQUE (user_id);
 
 CREATE TABLE IF NOT EXISTS patientcare.allergies (
     allergy_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -50,10 +68,13 @@ CREATE TABLE IF NOT EXISTS patientcare.chronic_conditions (
 CREATE TABLE IF NOT EXISTS patientcare.medical_documents (
     document_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     patient_id uuid NOT NULL,
+    appointment_id uuid,
     document_type varchar(100) NOT NULL,
     file_name varchar(255) NOT NULL,
     file_url text NOT NULL,
     visibility varchar(30) NOT NULL DEFAULT 'private',
+    description text,
+    uploaded_by varchar(50),
     uploaded_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT fk_documents_patient FOREIGN KEY (patient_id) REFERENCES patientcare.patients(patient_id) ON DELETE CASCADE
 );
@@ -76,6 +97,9 @@ CREATE TABLE IF NOT EXISTS patientcare.appointments (
     completed_by varchar(100),
     no_show_at timestamptz,
     no_show_marked_by varchar(100),
+    technical_failure_at timestamptz,
+    technical_failure_reason text,
+    technical_failure_marked_by varchar(100),
     cancellation_reason text,
     cancelled_by varchar(30),
     rescheduled_from_date date,
@@ -93,6 +117,9 @@ ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS completed_at times
 ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS completed_by varchar(100);
 ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS no_show_at timestamptz;
 ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS no_show_marked_by varchar(100);
+ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS technical_failure_at timestamptz;
+ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS technical_failure_reason text;
+ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS technical_failure_marked_by varchar(100);
 ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS reschedule_count int NOT NULL DEFAULT 0;
 ALTER TABLE patientcare.appointments ADD COLUMN IF NOT EXISTS policy_id uuid;
 
@@ -113,10 +140,37 @@ CREATE TABLE IF NOT EXISTS patientcare.telemedicine_sessions (
     provider_name varchar(100),
     meeting_link text,
     status varchar(30) NOT NULL DEFAULT 'scheduled',
+    session_version int NOT NULL DEFAULT 1,
+    token_version int NOT NULL DEFAULT 1,
     started_at timestamptz,
     ended_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT fk_telemed_appointment FOREIGN KEY (appointment_id) REFERENCES patientcare.appointments(appointment_id) ON DELETE CASCADE
+);
+
+ALTER TABLE patientcare.telemedicine_sessions ADD COLUMN IF NOT EXISTS session_version int NOT NULL DEFAULT 1;
+ALTER TABLE patientcare.telemedicine_sessions ADD COLUMN IF NOT EXISTS token_version int NOT NULL DEFAULT 1;
+
+CREATE TABLE IF NOT EXISTS patientcare.telemedicine_session_events (
+    event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id uuid NOT NULL,
+    event_type varchar(50) NOT NULL,
+    actor varchar(100),
+    details text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT fk_telemed_event_session FOREIGN KEY (session_id) REFERENCES patientcare.telemedicine_sessions(session_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS patientcare.google_oauth_integrations (
+    integration_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider varchar(50) NOT NULL UNIQUE,
+    account_email varchar(255),
+    refresh_token text NOT NULL,
+    scope text,
+    token_type varchar(50),
+    is_active int NOT NULL DEFAULT 1,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS patientcare.consultation_notes (
@@ -137,11 +191,24 @@ CREATE TABLE IF NOT EXISTS patientcare.prescriptions (
     appointment_id uuid NOT NULL UNIQUE,
     patient_id uuid NOT NULL,
     doctor_id uuid,
+    clinic_id uuid,
+    medications jsonb NOT NULL DEFAULT '[]',
     notes text,
-    issued_at timestamptz NOT NULL DEFAULT now(),
+    status varchar(30) NOT NULL DEFAULT 'draft',
+    issued_at timestamptz,
+    finalized_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT fk_prescriptions_appointment FOREIGN KEY (appointment_id) REFERENCES patientcare.appointments(appointment_id) ON DELETE CASCADE,
     CONSTRAINT fk_prescriptions_patient FOREIGN KEY (patient_id) REFERENCES patientcare.patients(patient_id) ON DELETE CASCADE
 );
+
+ALTER TABLE patientcare.prescriptions ADD COLUMN IF NOT EXISTS clinic_id uuid;
+ALTER TABLE patientcare.prescriptions ADD COLUMN IF NOT EXISTS medications jsonb NOT NULL DEFAULT '[]';
+ALTER TABLE patientcare.prescriptions ADD COLUMN IF NOT EXISTS status varchar(30) NOT NULL DEFAULT 'draft';
+ALTER TABLE patientcare.prescriptions ADD COLUMN IF NOT EXISTS finalized_at timestamptz;
+ALTER TABLE patientcare.prescriptions ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE patientcare.prescriptions ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 CREATE TABLE IF NOT EXISTS patientcare.prescription_items (
     prescription_item_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -152,6 +219,16 @@ CREATE TABLE IF NOT EXISTS patientcare.prescription_items (
     duration varchar(100),
     instruction text,
     CONSTRAINT fk_prescription_items_prescription FOREIGN KEY (prescription_id) REFERENCES patientcare.prescriptions(prescription_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS patientcare.appointment_notes (
+    note_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    appointment_id uuid NOT NULL,
+    doctor_id uuid NOT NULL,
+    content text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT fk_appointment_notes_appointment FOREIGN KEY (appointment_id) REFERENCES patientcare.appointments(appointment_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS patientcare.follow_up_suggestions (
@@ -216,6 +293,7 @@ ON CONFLICT (policy_id) DO NOTHING;
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA patientcare TO dev_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA patientcare GRANT ALL ON TABLES TO dev_user;
+GRANT ALL PRIVILEGES ON TABLE patientcare.google_oauth_integrations TO dev_user;
 
 -- ============================================================
 -- Seed data: patients and connected care records
@@ -283,13 +361,15 @@ INSERT INTO patientcare.consultation_notes (
 ON CONFLICT (note_id) DO NOTHING;
 
 INSERT INTO patientcare.prescriptions (
-    prescription_id, appointment_id, patient_id, doctor_id, notes
+    prescription_id, appointment_id, patient_id, doctor_id, clinic_id, medications, notes
 ) VALUES
     (
         'e4e4e4e4-e4e4-44e4-84e4-e4e4e4e4e4e4',
         'abababab-abab-4ab1-8ab1-ababababab13',
         '99999999-9999-4999-8999-999999999991',
         (SELECT doctor_id FROM patientcare.appointments WHERE appointment_id = 'abababab-abab-4ab1-8ab1-ababababab13'),
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        '[{"name": "Cetirizine", "dosage": "10mg", "frequency": "Once daily", "duration": "5 days", "notes": "Take at night"}]',
         'Take after meals'
     )
 ON CONFLICT (prescription_id) DO NOTHING;

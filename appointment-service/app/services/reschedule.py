@@ -8,10 +8,16 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
+from app.config import settings
 from app.models import Appointment, AppointmentStatusHistory, Patient
 from app.schemas import RescheduleAppointmentRequest, BookAppointmentResponse, BookAppointmentRequest
 from app.services.booking import _validate_slot_with_doctor_service, OCCUPIED_STATUSES
 from app.services.policy import resolve_policy_for_appointment
+from app.services.telemedicine_client import (
+    invalidate_session_for_appointment,
+    provision_session_for_appointment,
+    reschedule_session_for_appointment,
+)
 
 def reschedule_appointment(
     db: Session,
@@ -68,6 +74,8 @@ def reschedule_appointment(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot reschedule an appointment in '{appt.status}' state."
         )
+
+    original_consultation_type = (appt.appointment_type or "").lower()
 
     policy = resolve_policy_for_appointment(db, appt.policy_id)
     if appt.reschedule_count >= policy.max_reschedules:
@@ -200,6 +208,27 @@ def reschedule_appointment(
     # Execute the transaction securely
     db.commit()
     db.refresh(appt)
+
+    new_consultation_type = (appt.appointment_type or "").lower()
+    if original_consultation_type in {"telemedicine", "virtual"} and new_consultation_type in {"telemedicine", "virtual"}:
+        reschedule_session_for_appointment(
+            appt.appointment_id,
+            new_date=appt.appointment_date,
+            new_start_time=appt.start_time.strftime("%H:%M"),
+            reason="Appointment rescheduled",
+        )
+    elif original_consultation_type in {"telemedicine", "virtual"} and new_consultation_type not in {"telemedicine", "virtual"}:
+        invalidate_session_for_appointment(
+            appt.appointment_id,
+            reason="Appointment moved from telemedicine to physical consultation",
+        )
+    elif original_consultation_type not in {"telemedicine", "virtual"} and new_consultation_type in {"telemedicine", "virtual"}:
+        provision_session_for_appointment(
+            appt.appointment_id,
+            appt.appointment_type,
+        )
+
+    _emit_reschedule_notification_event(db=db, appointment=appt)
     
     # TODO: Emit logic against Notification-Service via webhooks to update Doctor and Patient.
 
@@ -216,3 +245,32 @@ def reschedule_appointment(
         consultation_fee=consultation_fee,
         message=f"Appointment successfully rescheduled to {appt.appointment_date.strftime('%Y-%m-%d')} at {appt.start_time.strftime('%H:%M')}."
     )
+
+
+def _emit_reschedule_notification_event(*, db: Session, appointment: Appointment) -> None:
+    patient = db.query(Patient).filter(Patient.patient_id == appointment.patient_id).first()
+    if not patient or not patient.user_id:
+        return
+
+    payload = {
+        "event_type": "appointment.rescheduled",
+        "user_id": str(patient.user_id),
+        "payload": {
+            "appointment_id": str(appointment.appointment_id),
+            "patient_name": patient.full_name,
+            "doctor_name": appointment.doctor_name,
+            "clinic_name": appointment.clinic_name,
+            "date": appointment.appointment_date.isoformat(),
+            "time": appointment.start_time.strftime("%H:%M"),
+            "status": appointment.status,
+            "phone": patient.phone,
+        },
+        "channels": ["sms", "email", "in_app"],
+        "priority": "normal",
+    }
+
+    try:
+        with httpx.Client(timeout=2.0) as client:
+            client.post(f"{settings.NOTIFICATION_SERVICE_URL}/api/notifications/events", json=payload)
+    except httpx.RequestError:
+        return

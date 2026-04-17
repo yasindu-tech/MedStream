@@ -141,7 +141,7 @@ async def initiate_payment(
     current_user: dict = Depends(require_patient)
 ):
     """Initiates a Stripe Checkout session for a pending payment."""
-    return await PaymentService.initiate_payment(db, str(payment_id), current_user["email"])
+    return await PaymentService.initiate_payment(db, str(payment_id), current_user["email"], current_user["user_id"])
 
 @router.post("/{payment_id}/retry", response_model=PaymentResponse)
 async def retry_payment(
@@ -218,6 +218,18 @@ async def stripe_webhook(
 
     return {"status": "success"}
 
+@router.post("/verify-session/{session_id}", status_code=200)
+async def verify_payment_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(require_any_auth)
+):
+    """
+    Manually verifies a Stripe/Mock session status and confirms.
+    Used for local dev where webhooks aren't reachable.
+    """
+    return await PaymentService.verify_and_confirm_session(db, session_id)
+
 @router.post("/mock-confirm", status_code=200)
 async def mock_payment_confirm(
     data: MockPayRequest,
@@ -235,8 +247,13 @@ async def mock_payment_confirm(
         raise HTTPException(status_code=404, detail="Payment not found")
         
     transaction_id = f"mock_tx_{payment.payment_id}"
-    await PaymentService.confirm_payment(db, payment, transaction_id)
-    return {"status": "confirmed", "transaction_id": transaction_id}
+    
+    if data.action == "fail":
+        await PaymentService.fail_payment(db, payment, "Mock payment failure requested by user")
+        return {"status": "failed", "transaction_id": transaction_id}
+    else:
+        await PaymentService.confirm_payment(db, payment, transaction_id)
+        return {"status": "confirmed", "transaction_id": transaction_id}
 
 @router.get("/{payment_id}/receipt")
 async def get_receipt(

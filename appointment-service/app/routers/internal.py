@@ -4,17 +4,19 @@ Provides booked slot data to doctor-service for slot computation.
 Not exposed through the nginx gateway.
 """
 from __future__ import annotations
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from pydantic import BaseModel
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Appointment
-from app.schemas import AppointmentOutcomeResponse, BookedSlotResponse, InternalNoShowRequest, MarkArrivedRequest
-from app.services.outcome import mark_arrived, mark_no_show
+from app.models import Appointment, AppointmentStatusHistory
+from app.schemas import AppointmentOutcomeResponse, BookedSlotResponse, InternalNoShowRequest, InternalTechnicalFailureRequest, MarkArrivedRequest
+from app.services.outcome import mark_arrived, mark_no_show, mark_technical_failure
 from app.services.policy import resolve_effective_policy
 
 router = APIRouter(tags=["internal"])
@@ -139,6 +141,27 @@ def internal_mark_arrived(
     )
 
 
+@router.post("/appointments/{appointment_id}/mark-technical-failure", response_model=AppointmentOutcomeResponse)
+def internal_mark_technical_failure(
+    request: InternalTechnicalFailureRequest,
+    appointment_id: UUID = Path(...),
+    db: Session = Depends(get_db),
+) -> AppointmentOutcomeResponse:
+    appt = mark_technical_failure(
+        db,
+        appointment_id=appointment_id,
+        actor_role=request.mark_by,
+        actor_user_id="internal-system",
+        reason=request.reason,
+    )
+    return AppointmentOutcomeResponse(
+        appointment_id=appt.appointment_id,
+        status=appt.status,
+        changed_at=(appt.technical_failure_at or datetime.now()).isoformat(),
+        message="Appointment marked as technical failure",
+    )
+
+
 @router.get("/policies/effective")
 def internal_get_effective_policy(db: Session = Depends(get_db)) -> dict:
     policy = resolve_effective_policy(db)
@@ -150,3 +173,98 @@ def internal_get_effective_policy(db: Session = Depends(get_db)) -> dict:
         "no_show_grace_period_minutes": policy.no_show_grace_period_minutes,
         "max_reschedules": policy.max_reschedules,
     }
+
+
+class _PaymentStatusUpdate(BaseModel):
+    payment_status: str
+    transaction_reference: str | None = None
+
+
+@router.patch("/appointments/{appointment_id}/payment-status")
+def internal_update_payment_status(
+    body: _PaymentStatusUpdate,
+    appointment_id: UUID = Path(...),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Called by payment-service after Stripe confirms/fails a payment.
+    Transitions the appointment status accordingly.
+    """
+    appointment = (
+        db.query(Appointment)
+        .filter(Appointment.appointment_id == appointment_id)
+        .first()
+    )
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    if body.payment_status == "paid":
+        old_status = appointment.status
+        appointment.payment_status = "paid"
+        appointment.status = "confirmed"
+        
+        # Record history
+        history = AppointmentStatusHistory(
+            appointment_id=appointment_id,
+            old_status=old_status,
+            new_status="confirmed",
+            changed_by="payment-service",
+            reason="Payment confirmed via Stripe"
+        )
+        db.add(history)
+        
+        db.commit()
+        return {
+            "appointment_id": str(appointment_id),
+            "status": appointment.status,
+            "payment_status": appointment.payment_status,
+            "message": "Appointment confirmed after successful payment.",
+        }
+    elif body.payment_status == "failed":
+        old_status = appointment.status
+        appointment.payment_status = "failed"
+        
+        # Record history for payment failure
+        history = AppointmentStatusHistory(
+            appointment_id=appointment_id,
+            old_status=old_status,
+            new_status=old_status,  # Status doesn't change, but we log the payment failure event
+            changed_by="payment-service",
+            reason="Payment failed via Stripe"
+        )
+        db.add(history)
+        
+        db.commit()
+        return {
+            "appointment_id": str(appointment_id),
+            "status": appointment.status,
+            "payment_status": appointment.payment_status,
+            "message": "Payment failed. Patient may retry.",
+        }
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid payment_status: {body.payment_status}")
+
+
+@router.get("/appointments/{appointment_id}")
+def internal_get_appointment_details(
+    appointment_id: UUID = Path(...),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Returns basic appointment details for other services (e.g. payment-service)."""
+    appointment = (
+        db.query(Appointment)
+        .filter(Appointment.appointment_id == appointment_id)
+        .first()
+    )
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    return {
+        "appointment_id": str(appointment.appointment_id),
+        "doctor_name": appointment.doctor_name,
+        "appointment_date": appointment.appointment_date.isoformat(),
+        "start_time": appointment.start_time.strftime("%H:%M"),
+        "clinic_name": appointment.clinic_name,
+    }
+
+

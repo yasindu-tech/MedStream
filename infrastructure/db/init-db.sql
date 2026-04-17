@@ -25,14 +25,19 @@ CREATE TABLE IF NOT EXISTS auth.roles (
 );
 
 CREATE TABLE IF NOT EXISTS auth.users (
-    user_id        UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
-    email          TEXT      UNIQUE NOT NULL,
-    phone          TEXT      UNIQUE,
-    password_hash  TEXT      NOT NULL,
-    is_verified    BOOLEAN   NOT NULL DEFAULT FALSE,
-    account_status TEXT      NOT NULL DEFAULT 'ACTIVE',
-    created_at     TIMESTAMP NOT NULL DEFAULT NOW()
+    user_id            UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
+    full_name          TEXT,
+    email              TEXT      UNIQUE NOT NULL,
+    phone              TEXT      UNIQUE,
+    password_hash      TEXT      NOT NULL,
+    is_verified        BOOLEAN   NOT NULL DEFAULT TRUE,
+    account_status     TEXT      NOT NULL DEFAULT 'ACTIVE',
+    suspension_reason  TEXT,
+    created_at         TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS suspension_reason TEXT;
 
 CREATE TABLE IF NOT EXISTS auth.user_roles (
     user_role_id UUID      PRIMARY KEY DEFAULT gen_random_uuid(),

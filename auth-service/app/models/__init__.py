@@ -4,7 +4,7 @@ import datetime
 import enum
 import uuid
 
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -29,11 +29,13 @@ class User(Base):
     __table_args__ = {"schema": "auth"}
 
     id = Column("user_id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    full_name = Column(String, nullable=True)
     email = Column(String, unique=True, nullable=False, index=True)
     phone = Column(String, unique=True, nullable=True)
     password_hash = Column(String, nullable=False)
     is_verified = Column(Boolean, nullable=False, default=False)
     account_status = Column(String, nullable=False, default=AccountStatusEnum.ACTIVE.value)
+    suspension_reason = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
 
     roles = relationship(

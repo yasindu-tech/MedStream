@@ -3,12 +3,17 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 # ---------------------------------------------------------------------------
 # Internal: booked slot contract (consumed by doctor-service)
 # ---------------------------------------------------------------------------
+
+class DoctorEventRequest(BaseModel):
+    event_type: str
+    payload: dict
+
 
 class BookedSlotResponse(BaseModel):
     doctor_id: UUID
@@ -96,11 +101,13 @@ class DoctorProfileResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class BookAppointmentRequest(BaseModel):
-    doctor_id: UUID
-    clinic_id: UUID
+    model_config = ConfigDict(populate_by_name=True)
+
+    doctor_id: UUID = Field(validation_alias=AliasChoices("doctor_id", "doctorId"))
+    clinic_id: UUID = Field(validation_alias=AliasChoices("clinic_id", "clinicId"))
     date: date              # YYYY-MM-DD
-    start_time: str         # "HH:MM"
-    consultation_type: str  # "physical" or "telemedicine"
+    start_time: str = Field(validation_alias=AliasChoices("start_time", "startTime"))         # "HH:MM"
+    consultation_type: str = Field(validation_alias=AliasChoices("consultation_type", "consultationType"))  # "physical" or "telemedicine"
 
 
 class BookAppointmentResponse(BaseModel):
@@ -111,10 +118,107 @@ class BookAppointmentResponse(BaseModel):
     start_time: str
     end_time: str
     consultation_type: str
-    status: str             # "pending_payment" or "confirmed"
+    status: str             # "pending_doctor", "pending_payment", or "confirmed"
     payment_status: str     # "pending" or "not_required"
     consultation_fee: Optional[float] = None
+    payment_id: Optional[UUID] = None
     message: str
+
+
+class AppointmentActionRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+class AppointmentNoteRequest(BaseModel):
+    content: str
+
+
+class AppointmentNoteResponse(BaseModel):
+    note_id: UUID
+    appointment_id: UUID
+    doctor_id: UUID
+    content: str
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class MedicationItem(BaseModel):
+    name: str
+    dosage: Optional[str] = None
+    frequency: Optional[str] = None
+    duration: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class PrescriptionRequest(BaseModel):
+    medications: List[MedicationItem]
+    instructions: Optional[str] = None
+
+
+class PrescriptionResponse(BaseModel):
+    prescription_id: UUID
+    appointment_id: UUID
+    doctor_id: UUID
+    patient_id: UUID
+    clinic_id: Optional[UUID] = None
+    medications: List[MedicationItem]
+    instructions: Optional[str] = None
+    status: str
+    issued_at: Optional[str] = None
+    finalized_at: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class PatientSummaryResponse(BaseModel):
+    patient_id: UUID
+    full_name: str
+    dob: Optional[date] = None
+    gender: Optional[str] = None
+    nic_passport: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    blood_group: Optional[str] = None
+    appointment_id: UUID
+    appointment_date: date
+    appointment_start_time: str
+    appointment_end_time: str
+    appointment_type: str
+    appointment_status: str
+    consultation_fee: Optional[float] = None
+
+
+class PatientDocumentRequest(BaseModel):
+    name: str
+    document_type: Optional[str] = None
+    url: str
+    description: Optional[str] = None
+
+
+class PatientDocumentResponse(BaseModel):
+    document_id: UUID
+    patient_id: UUID
+    appointment_id: Optional[UUID] = None
+    name: str
+    document_type: Optional[str] = None
+    url: str
+    description: Optional[str] = None
+    uploaded_by: Optional[str] = None
+    uploaded_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class PatientDocumentsResponse(BaseModel):
+    results: List[PatientDocumentResponse]
+    total: int
 
 
 # ---------------------------------------------------------------------------
@@ -211,10 +315,19 @@ class MarkArrivedRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class MarkTechnicalFailureRequest(BaseModel):
+    reason: Optional[str] = None
+
+
 class InternalNoShowRequest(BaseModel):
     reason: Optional[str] = None
     mark_by: str = "system"
     observed_join_within_grace: bool = False
+
+
+class InternalTechnicalFailureRequest(BaseModel):
+    reason: Optional[str] = None
+    mark_by: str = "system"
 
 
 class AppointmentStatusHistoryItem(BaseModel):
@@ -231,6 +344,36 @@ class AppointmentStatsResponse(BaseModel):
     total_cancellations: int
     total_no_shows: int
     total_completed: int
+    total_failed_sessions: int
+    average_duration_minutes: Optional[float] = None
+
+
+class TelemedicineLiveStatusItem(BaseModel):
+    session_id: UUID
+    appointment_id: UUID
+    doctor_id: Optional[UUID] = None
+    doctor_name: Optional[str] = None
+    clinic_id: Optional[UUID] = None
+    clinic_name: Optional[str] = None
+    patient_id: UUID
+    patient_name: str
+    appointment_date: date
+    start_time: str
+    end_time: str
+    appointment_status: str
+    session_status: str
+    provider_name: Optional[str] = None
+    duration_minutes: Optional[float] = None
+    started_at: Optional[str] = None
+    ended_at: Optional[str] = None
+
+
+class TelemedicineLiveStatusPaginatedResponse(BaseModel):
+    items: list[TelemedicineLiveStatusItem]
+    total: int
+    page: int
+    size: int
+    has_more: bool
 
 
 class AppointmentPolicyResponse(BaseModel):

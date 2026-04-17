@@ -103,6 +103,8 @@ services:
         condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@auth_db:5432/medstream_auth
+      PATIENT_SERVICE_URL: http://patient-service:8000
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change-me-in-dev}
     ports:
       - "8001:8000"
     networks:
@@ -118,6 +120,11 @@ services:
         condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@patientcare_db:5432/medstream_patientcare
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      CLOUDINARY_FOLDER: ${CLOUDINARY_FOLDER:-medstream/patient-documents}
+      MAX_DOCUMENT_SIZE_BYTES: ${MAX_DOCUMENT_SIZE_BYTES:-10485760}
     ports:
       - "8002:8000"
     networks:
@@ -131,11 +138,15 @@ services:
     depends_on:
       admin_db:
         condition: service_started
+      appointment-service:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@admin_db:5432/medstream_admin
       AUTH_SERVICE_URL: http://auth-service:8000
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8000
       NOTIFICATION_SERVICE_URL: http://notification-service:8000
       LOGIN_URL: http://localhost:5173/login
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change-me-in-dev}
     ports:
       - "8003:8000"
     networks:
@@ -156,6 +167,8 @@ services:
       DOCTOR_SERVICE_URL: http://doctor-service:8000
       CLINIC_SERVICE_URL: http://clinic-service:8000
       NOTIFICATION_SERVICE_URL: http://notification-service:8000
+      PAYMENT_SERVICE_URL: http://payment-service:8000
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-medstream-internal-token}
     ports:
       - "8004:8000"
     networks:
@@ -169,6 +182,13 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@patientcare_db:5432/medstream_patientcare
       APPOINTMENT_SERVICE_URL: http://appointment-service:8000
+      DOCTOR_SERVICE_URL: http://doctor-service:8000
+      TELEMEDICINE_PROVIDER: ${TELEMEDICINE_PROVIDER:-google}
+      MEETING_LINK_BASE_URL: ${MEETING_LINK_BASE_URL:-https://meet.medstream.local/s}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-http://localhost:8080/telemedicine/auth/google/callback}
+      GOOGLE_OAUTH_SCOPES: ${GOOGLE_OAUTH_SCOPES:-https://www.googleapis.com/auth/meetings.space.created}
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./telemedicine-service:/app
@@ -187,12 +207,10 @@ services:
         condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://dev_user:dev_password@finance_db:5432/medstream_finance
-      STRIPE_API_KEY: ${STRIPE_API_KEY:-}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
-      ENABLE_STRIPE_MOCK: ${ENABLE_STRIPE_MOCK:-true}
       JWT_SECRET: ${SECRET_KEY:-your-super-secret-key-change-in-production}
       JWT_ALGORITHM: HS256
       NOTIFICATION_SERVICE_URL: http://notification-service:8000
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8000
     ports:
       - "8005:8000"
     networks:
@@ -208,6 +226,15 @@ services:
         condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://dev_user:dev_password@communication_db:5432/medstream_communication
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@medstream.com}
+      TEXT_LK_API_TOKEN: ${TEXT_LK_API_TOKEN:-}
+      TEXT_LK_SENDER_ID: ${TEXT_LK_SENDER_ID:-TextLKDemo}
+      SECRET_KEY: ${SECRET_KEY:-your-super-secret-key-change-in-production}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-key-change-in-production}
     ports:
       - "8006:8000"
     networks:
@@ -224,6 +251,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@admin_db:5432/medstream_admin
       APPOINTMENT_SERVICE_URL: http://appointment-service:8000
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-medstream-internal-token}
     ports:
       - "8007:8000"
     networks:

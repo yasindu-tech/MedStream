@@ -83,6 +83,77 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Backward-compatible migration for older notification_preferences schema variants.
+-- Legacy shape:
+--   (preference_id, user_id, channel, enabled, created_at) with UNIQUE(user_id, channel)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'communication'
+          AND table_name = 'notification_preferences'
+          AND column_name = 'channel'
+    ) AND NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'communication'
+          AND table_name = 'notification_preferences'
+          AND column_name = 'email_enabled'
+    ) THEN
+        ALTER TABLE communication.notification_preferences
+            ADD COLUMN email_enabled BOOLEAN,
+            ADD COLUMN sms_enabled BOOLEAN,
+            ADD COLUMN in_app_enabled BOOLEAN,
+            ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+        UPDATE communication.notification_preferences p
+        SET email_enabled = COALESCE(
+                (SELECT MAX(CASE WHEN channel = 'email' THEN enabled::int END)::boolean
+                 FROM communication.notification_preferences p2
+                 WHERE p2.user_id = p.user_id),
+                TRUE
+            ),
+            sms_enabled = COALESCE(
+                (SELECT MAX(CASE WHEN channel = 'sms' THEN enabled::int END)::boolean
+                 FROM communication.notification_preferences p2
+                 WHERE p2.user_id = p.user_id),
+                TRUE
+            ),
+            in_app_enabled = COALESCE(
+                (SELECT MAX(CASE WHEN channel = 'in_app' THEN enabled::int END)::boolean
+                 FROM communication.notification_preferences p2
+                 WHERE p2.user_id = p.user_id),
+                TRUE
+            );
+
+        DELETE FROM communication.notification_preferences t
+        USING communication.notification_preferences d
+        WHERE t.user_id = d.user_id
+          AND t.preference_id > d.preference_id;
+
+        ALTER TABLE communication.notification_preferences
+            DROP CONSTRAINT IF EXISTS uq_notification_pref;
+
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_notification_preferences_user_id
+            ON communication.notification_preferences (user_id);
+
+        ALTER TABLE communication.notification_preferences
+            DROP COLUMN IF EXISTS channel,
+            DROP COLUMN IF EXISTS enabled,
+            DROP COLUMN IF EXISTS created_at;
+
+        ALTER TABLE communication.notification_preferences
+            ALTER COLUMN email_enabled SET DEFAULT TRUE,
+            ALTER COLUMN sms_enabled SET DEFAULT TRUE,
+            ALTER COLUMN in_app_enabled SET DEFAULT TRUE,
+            ALTER COLUMN email_enabled SET NOT NULL,
+            ALTER COLUMN sms_enabled SET NOT NULL,
+            ALTER COLUMN in_app_enabled SET NOT NULL;
+    END IF;
+END
+$$;
+
 -- Grant privileges on all existing and future tables
 GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA communication TO dev_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA communication TO dev_user;
@@ -93,8 +164,31 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA communication GRANT ALL ON SEQUENCES TO dev_u
 INSERT INTO notification_templates (event_type, channel, subject, body, status) VALUES
 ('appointment.booked', 'email', 'Appointment Confirmed', 'Hello {patient_name}, your appointment with {doctor_name} is confirmed for {date} at {time}.', 'active'),
 ('appointment.cancelled', 'email', 'Appointment Cancelled', 'Dear {patient_name}, your appointment on {date} has been cancelled.', 'active'),
+('appointment.rescheduled', 'email', 'Appointment Rescheduled', 'Hello {patient_name}, your appointment with {doctor_name} has been rescheduled to {date} at {time}.', 'active'),
+('appointment.accepted', 'in_app', 'Appointment Accepted', 'Your appointment with {doctor_name} on {date} at {start_time} has been accepted.', 'active'),
+('appointment.rejected', 'in_app', 'Appointment Rejected', 'Your appointment with {doctor_name} on {date} at {start_time} was rejected.', 'active'),
+('appointment.arrived', 'in_app', 'Appointment Arrival Confirmed', 'Your arrival for appointment {appointment_id} has been recorded.', 'active'),
+('appointment.completed', 'in_app', 'Appointment Completed', 'Your appointment with {doctor_name} has been marked as completed.', 'active'),
+('appointment.no_show', 'in_app', 'Appointment Marked No-Show', 'Your appointment on {date} at {start_time} was marked as no-show.', 'active'),
+('appointment.technical_failure', 'in_app', 'Technical Failure Reported', 'A technical issue was reported for your appointment. Please review details in the app.', 'active'),
+('workflow.prescription.trigger', 'in_app', 'Prescription Workflow Started', 'Prescription generation has been triggered for appointment {appointment_id}.', 'active'),
+('workflow.followup.trigger', 'in_app', 'Follow-up Workflow Started', 'Follow-up workflow has started for appointment {appointment_id}.', 'active'),
+('workflow.reschedule.recommendation', 'in_app', 'Reschedule Recommended', 'A reschedule has been recommended for appointment {appointment_id}.', 'active'),
 ('account.verification', 'email', 'Verify Your Account', 'Your verification code is: {otp}', 'active'),
 ('account.password_reset', 'email', 'Reset Your Password', 'Click here to reset your password: {reset_link}', 'active'),
 ('clinic.admin.onboarding', 'email', 'Welcome to MedStream', '<html><body><h1>Welcome to MedStream</h1><p>Your clinic <strong>{clinic_name}</strong> has been created.</p><p>Use the credentials below to sign in as a clinic administrator:</p><ul><li><strong>Email:</strong> {login_email}</li><li><strong>Temporary password:</strong> {temporary_password}</li></ul><p>Please <a href="{login_url}">sign in now</a> and change your password immediately.</p><p>If you did not request this, please contact support.</p></body></html>', 'active'),
-('prescription.available', 'in_app', 'New Prescription', 'Dr. {doctor_name} has issued a new prescription for you.', 'active')
+('doctor.verification.approved', 'email', 'Doctor Verification Approved', 'Congratulations {doctor_name}, your verification has been approved. {reason}', 'active'),
+('doctor.verification.rejected', 'email', 'Doctor Verification Rejected', 'Hello {doctor_name}, your verification request has been rejected. Reason: {reason}', 'active'),
+('doctor.verification.pending', 'in_app', 'Doctor Verification Pending', 'Your verification request is under review. We will notify you once it is processed.', 'active'),
+('doctor.profile.created', 'in_app', 'Doctor Profile Created', 'Your doctor profile was created successfully and is now pending verification.', 'active'),
+('doctor.profile.updated', 'in_app', 'Doctor Profile Updated', 'Your doctor profile details were updated successfully.', 'active'),
+('prescription.available', 'in_app', 'New Prescription', 'Dr. {doctor_name} has issued a new prescription for you.', 'active'),
+('payment.confirmed', 'email', 'Payment Received', 'Hello, your payment of {amount} {currency} for appointment {appointment_id} was successful. Transaction: {transaction_reference}', 'active'),
+('payment.failed', 'email', 'Payment Failed', 'Your payment of {amount} {currency} failed. Reason: {reason}. You have {retries_remaining} retries left.', 'active'),
+('payment.refunded', 'email', 'Refund Processed', 'A refund of {refund_amount} {currency} has been processed for your payment. Reason: {reason}', 'active'),
+('patient.profile.updated', 'in_app', 'Profile Updated', 'Your profile was updated successfully. Changed fields: {updated_fields}.', 'active'),
+('patient.medical_info.updated', 'in_app', 'Medical Information Updated', 'Your {section} entry ''{item_name}'' was {action}.', 'active'),
+('patient.report.uploaded', 'in_app', 'Medical Report Uploaded', 'Your report ''{file_name}'' ({document_type}) was uploaded successfully.', 'active'),
+('patient.report.updated', 'in_app', 'Medical Report Updated', 'Your report ''{file_name}'' metadata was updated.', 'active'),
+('patient.report.deleted', 'in_app', 'Medical Report Deleted', 'Your report ''{file_name}'' ({document_type}) was removed.', 'active')
 ON CONFLICT (event_type) DO NOTHING;

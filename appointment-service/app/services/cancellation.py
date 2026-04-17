@@ -4,14 +4,17 @@ from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
+import httpx
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models import Appointment, AppointmentStatusHistory, Patient
 from app.schemas import CancelAppointmentRequest
 from app.services.clinic_scope import resolve_staff_clinic_id
 from app.services.followup import _get_doctor_info_by_user
 from app.services.policy import resolve_policy_for_appointment
+from app.services.telemedicine_client import invalidate_session_for_appointment
 
 
 def cancel_appointment(
@@ -75,6 +78,14 @@ def cancel_appointment(
     db.commit()
     db.refresh(appt)
 
+    if (appt.appointment_type or "").lower() in {"telemedicine", "virtual"}:
+        invalidate_session_for_appointment(
+            appt.appointment_id,
+            reason=f"Appointment cancelled by {role}",
+        )
+
+    _emit_cancellation_notification_event(db=db, appointment=appt)
+
     # 4. Trigger Webhooks for Notifications / Refunds
     # TODO: if `appt.payment_status` != "pending", notify `payment-service` to process refund requests depending on Cutoffs.
     # TODO: notify `notification-service`.
@@ -84,6 +95,36 @@ def cancel_appointment(
         "status": appt.status,
         "message": f"Appointment successfully cancelled by {role}."
     }
+
+
+def _emit_cancellation_notification_event(*, db: Session, appointment: Appointment) -> None:
+    patient = db.query(Patient).filter(Patient.patient_id == appointment.patient_id).first()
+    if not patient or not patient.user_id:
+        return
+
+    payload = {
+        "event_type": "appointment.cancelled",
+        "user_id": str(patient.user_id),
+        "payload": {
+            "appointment_id": str(appointment.appointment_id),
+            "patient_name": patient.full_name,
+            "doctor_name": appointment.doctor_name,
+            "clinic_name": appointment.clinic_name,
+            "date": appointment.appointment_date.isoformat(),
+            "time": appointment.start_time.strftime("%H:%M"),
+            "status": appointment.status,
+            "reason": appointment.cancellation_reason,
+            "phone": patient.phone,
+        },
+        "channels": ["sms", "email", "in_app"],
+        "priority": "normal",
+    }
+
+    try:
+        with httpx.Client(timeout=2.0) as client:
+            client.post(f"{settings.NOTIFICATION_SERVICE_URL}/api/notifications/events", json=payload)
+    except httpx.RequestError:
+        return
 
 
 def _handle_patient_cancel(db: Session, appt: Appointment, user_id: str, reason: Optional[str]):

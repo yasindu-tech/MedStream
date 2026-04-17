@@ -4,7 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import Base, engine
 from app.routers import router as clinics_router
+from app.routers.dashboard import router as dashboard_router
+from app.routers.doctor_assignments import router as doctor_assignments_router
 from app.routers.internal import router as internal_router
+from app.routers.staff import router as staff_router
 
 import app.models  # noqa: F401
 
@@ -21,6 +24,9 @@ app.add_middleware(
 )
 
 app.include_router(clinics_router)
+app.include_router(staff_router)
+app.include_router(doctor_assignments_router)
+app.include_router(dashboard_router)
 
 app.include_router(internal_router, prefix="/internal")
 

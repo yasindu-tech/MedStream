@@ -12,11 +12,17 @@ class StripeClient:
         appointment_id: str,
         amount: Decimal,
         currency: str,
-        patient_email: str
+        patient_email: str,
+        doctor_name: str = "Doctor",
+        appointment_date: str = "",
     ) -> Optional[dict]:
         """
         Creates a Stripe Checkout Session for the payment.
         """
+        product_name = f"Consultation with {doctor_name}"
+        if appointment_date:
+            product_name += f" on {appointment_date}"
+
         try:
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
@@ -24,7 +30,8 @@ class StripeClient:
                     'price_data': {
                         'currency': currency.lower(),
                         'product_data': {
-                            'name': f'Appointment Booking - {appointment_id}',
+                            'name': product_name,
+                            'description': f'Appointment ID: {appointment_id}',
                         },
                         'unit_amount': int(amount * 100), # Amount in cents
                     },
@@ -71,3 +78,20 @@ class StripeClient:
         return stripe.Webhook.construct_event(
             payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
         )
+
+    @staticmethod
+    def retrieve_checkout_session(session_id: str) -> Optional[dict]:
+        """
+        Retrieves a Stripe Checkout Session by ID.
+        Used for direct verification without webhooks.
+        """
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+            return {
+                "id": session.id,
+                "payment_status": session.payment_status,
+                "status": session.status,
+                "metadata": session.metadata
+            }
+        except Exception as e:
+            raise e

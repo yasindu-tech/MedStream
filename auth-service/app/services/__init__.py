@@ -1,12 +1,14 @@
 from datetime import datetime, timedelta
 import secrets
 from typing import cast
+from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models import User, Role, UserRole, AuthSession, OTPVerification
-from app.schemas import RegisterRequest, LoginRequest, OtpPurpose
+from app.models import User, Role, UserRole, AuthSession, OTPVerification, AccountStatusEnum
+from app.schemas import RegisterRequest, LoginRequest, OtpPurpose, RoleEnum
+from app.services.patient_client import create_patient_profile
 from app.utils.hashing import hash_password, verify_password
 from app.utils.jwt import create_access_token, create_refresh_token, decode_token
 
@@ -17,6 +19,7 @@ OTP_EXPIRE_MINUTES = 10
 def _serialize_user(user: User) -> dict:
     return {
         "id": user.id,
+        "full_name": user.full_name,
         "email": user.email,
         "phone": user.phone,
         "is_verified": user.is_verified,
@@ -38,6 +41,16 @@ def _primary_role(user: User) -> str:
     return "patient"
 
 
+def _create_patient_profile(user: User) -> None:
+    payload = {
+        "user_id": str(user.id),
+        "full_name": user.full_name,
+        "email": user.email,
+        "phone": user.phone,
+    }
+    create_patient_profile(payload)
+
+
 def register_user(data: RegisterRequest, db: Session) -> dict:
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -46,10 +59,11 @@ def register_user(data: RegisterRequest, db: Session) -> dict:
 
     role = _get_role(db, data.role.value)
     user = User(
+        full_name=data.full_name.strip(),
         email=data.email,
         phone=data.phone,
         password_hash=hash_password(data.password),
-        is_verified=False,
+        is_verified=True,
         account_status="ACTIVE",
     )
     db.add(user)
@@ -59,10 +73,25 @@ def register_user(data: RegisterRequest, db: Session) -> dict:
     db.add(user_role)
     db.commit()
     db.refresh(user)
+
+    if role.role_name == RoleEnum.patient.value:
+        try:
+            _create_patient_profile(user)
+        except HTTPException:
+            db.delete(user)
+            db.commit()
+            raise
+
     return _serialize_user(user)
 
-
-def create_verified_user(email: str, password: str, role_name: str, db: Session, phone: str | None = None) -> dict:
+def create_verified_user(
+    email: str,
+    password: str,
+    role_name: str,
+    db: Session,
+    phone: str | None = None,
+    full_name: str | None = None,
+) -> dict:
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
     if phone and db.query(User).filter(User.phone == phone).first():
@@ -70,6 +99,7 @@ def create_verified_user(email: str, password: str, role_name: str, db: Session,
 
     role = _get_role(db, role_name)
     user = User(
+        full_name=full_name.strip() if full_name else None,
         email=email,
         phone=phone,
         password_hash=hash_password(password),
@@ -83,6 +113,15 @@ def create_verified_user(email: str, password: str, role_name: str, db: Session,
     db.add(user_role)
     db.commit()
     db.refresh(user)
+
+    if role.role_name == RoleEnum.patient.value:
+        try:
+            _create_patient_profile(user)
+        except HTTPException:
+            db.delete(user)
+            db.commit()
+            raise
+
     return _serialize_user(user)
 
 
@@ -213,6 +252,31 @@ def verify_otp_code(email: str, otp_code: str, purpose: OtpPurpose, new_password
         setattr(user, "password_hash", hash_password(new_password))
     db.commit()
 
+    return {"success": True}
+
+
+def deactivate_user(user_id: UUID, db: Session) -> dict:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if cast(str, user.account_status) == "INACTIVE":
+        return {"success": True}
+
+    setattr(user, "account_status", "INACTIVE")
+    db.commit()
+    return {"success": True}
+
+
+def suspend_user(user_id: UUID, reason: str | None, db: Session) -> dict:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if cast(str, user.account_status) == AccountStatusEnum.SUSPENDED.value:
+        return {"success": True}
+
+    setattr(user, "account_status", AccountStatusEnum.SUSPENDED.value)
+    setattr(user, "suspension_reason", reason)
+    db.commit()
     return {"success": True}
 
 

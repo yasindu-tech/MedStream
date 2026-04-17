@@ -9,13 +9,14 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import Appointment, Patient
+from app.models import Appointment, Patient, AppointmentStatusHistory
 from app.schemas import BookAppointmentRequest, BookAppointmentResponse
 from app.services.policy import resolve_effective_policy
+from app.services.telemedicine_client import provision_session_for_appointment
 
 
 # Statuses that occupy a slot (same as in internal.py)
-OCCUPIED_STATUSES = {"scheduled", "confirmed", "pending_payment", "in_progress", "arrived"}
+OCCUPIED_STATUSES = {"scheduled", "pending_doctor", "confirmed", "pending_payment", "in_progress", "arrived"}
 
 
 def book_appointment(
@@ -145,17 +146,16 @@ def book_appointment(
         db.flush()  # get patient_id without committing
 
     # ------------------------------------------------------------------
-    # Step 6: Create appointment
+    # Step 6: Create appointment request
     # ------------------------------------------------------------------
-    # Determine initial statuses based on consultation fee
     if consultation_fee and consultation_fee > 0:
-        appt_status = "pending_payment"
+        appt_status = "pending_doctor"
         payment_status = "pending"
-        message = f"Appointment created. Payment of Rs {consultation_fee:.2f} is required to confirm."
+        message = f"Appointment request submitted. Awaiting doctor approval and payment of Rs {consultation_fee:.2f}."
     else:
-        appt_status = "confirmed"
+        appt_status = "pending_doctor"
         payment_status = "not_required"
-        message = "Appointment confirmed successfully."
+        message = "Appointment request submitted. Awaiting doctor approval."
 
     appointment = Appointment(
         patient_id=existing_patient.patient_id,
@@ -174,25 +174,63 @@ def book_appointment(
     )
 
     db.add(appointment)
+    db.flush() # Get ID for history record
+
+    # Record initial history
+    history = AppointmentStatusHistory(
+        appointment_id=appointment.appointment_id,
+        new_status=appt_status,
+        changed_by="patient",
+        reason="Appointment created by patient"
+    )
+    db.add(history)
+    
     db.commit()
     db.refresh(appointment)
 
-    # ------------------------------------------------------------------
-    # Step 5: TODO — Payment service integration
-    # When payment is required (consultation_fee > 0):
-    #   - Call POST http://payment-service:8000/internal/payments
-    #     with appointment_id, patient_id, amount
-    #   - Store returned payment_id
-    #   - Payment service will call back to confirm the appointment
-    # ------------------------------------------------------------------
+    if appointment.appointment_type.lower() in {"telemedicine", "virtual"}:
+        provision_session_for_appointment(
+            appointment.appointment_id,
+            appointment.appointment_type,
+        )
+
+    _emit_booking_notification_event(
+        appointment=appointment,
+        patient_user_id=patient_id,
+        patient_name=existing_patient.full_name if existing_patient else "Patient",
+        patient_phone=existing_patient.phone if existing_patient else None,
+    )
 
     # ------------------------------------------------------------------
-    # Step 6: TODO — Notification service integration
-    # When appointment is confirmed (no payment required):
-    #   - Call POST http://notification-service:8000/internal/notifications
-    #     with user_id, channel, payload (appointment details)
-    #   - Fire-and-forget, do not block on response
+    # Step 7: Payment service integration
+    # When payment is required (consultation_fee > 0):
+    #   - Call POST http://payment-service:8000/api/payments/
+    #     with appointment_id, patient_id, doctor_id, clinic_id, amount
+    #   - Store returned payment_id for frontend redirect
     # ------------------------------------------------------------------
+    payment_id = None
+    if consultation_fee and consultation_fee > 0:
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                pay_resp = client.post(
+                    f"{settings.PAYMENT_SERVICE_URL}/api/payments/",
+                    json={
+                        "appointment_id": str(appointment.appointment_id),
+                        "patient_id": patient_id,
+                        "doctor_id": str(request.doctor_id),
+                        "clinic_id": str(request.clinic_id),
+                        "amount": float(consultation_fee),
+                        "currency": "LKR",
+                    },
+                    headers={"Authorization": "Bearer internal-service-call"},
+                )
+                if pay_resp.status_code in (200, 201):
+                    pay_data = pay_resp.json()
+                    payment_id = pay_data.get("payment_id")
+        except Exception:
+            # Payment service unavailable — booking still succeeds with
+            # payment_status="pending" so it can be retried later.
+            pass
 
     return BookAppointmentResponse(
         appointment_id=appointment.appointment_id,
@@ -205,8 +243,39 @@ def book_appointment(
         status=appointment.status,
         payment_status=appointment.payment_status,
         consultation_fee=consultation_fee,
+        payment_id=payment_id,
         message=message,
     )
+
+
+def _emit_booking_notification_event(
+    *,
+    appointment: Appointment,
+    patient_user_id: str,
+    patient_name: str,
+    patient_phone: Optional[str],
+) -> None:
+    payload = {
+        "event_type": "appointment.booked",
+        "user_id": patient_user_id,
+        "payload": {
+            "appointment_id": str(appointment.appointment_id),
+            "patient_name": patient_name,
+            "doctor_name": appointment.doctor_name,
+            "date": appointment.appointment_date.isoformat(),
+            "time": appointment.start_time.strftime("%H:%M"),
+            "phone": patient_phone,
+        },
+        "channels": ["sms", "email", "in_app"],
+        "priority": "normal",
+    }
+
+    try:
+        with httpx.Client(timeout=2.0) as client:
+            client.post(f"{settings.NOTIFICATION_SERVICE_URL}/api/notifications/events", json=payload)
+    except httpx.RequestError:
+        # Booking should fail-open if notification service is temporarily unavailable.
+        return
 
 
 def _parse_time(value: str) -> time:
@@ -223,6 +292,7 @@ def _parse_time(value: str) -> time:
 def _validate_slot_with_doctor_service(request: BookAppointmentRequest) -> dict:
     """Call doctor-service to validate the slot is bookable."""
     url = f"{settings.DOCTOR_SERVICE_URL}/internal/doctors/{request.doctor_id}/validate-slot"
+    headers = {"X-Internal-Service-Token": settings.INTERNAL_SERVICE_TOKEN}
     params = {
         "clinic_id": str(request.clinic_id),
         "date": request.date.isoformat(),
@@ -232,7 +302,7 @@ def _validate_slot_with_doctor_service(request: BookAppointmentRequest) -> dict:
 
     try:
         with httpx.Client(timeout=10.0) as client:
-            response = client.get(url, params=params)
+            response = client.get(url, params=params, headers=headers)
             response.raise_for_status()
             return response.json()
     except httpx.HTTPStatusError as exc:
