@@ -13,17 +13,9 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Appointment, Patient
-from app.schemas import (
-    AppointmentListItemResponse,
-    AppointmentListPaginatedResponse,
-    AppointmentOutcomeResponse,
-    BookedSlotResponse,
-    DoctorEventRequest,
-    InternalNoShowRequest,
-    MarkArrivedRequest,
-)
-from app.services.outcome import mark_arrived, mark_no_show
+from app.models import Appointment
+from app.schemas import AppointmentOutcomeResponse, BookedSlotResponse, InternalNoShowRequest, InternalTechnicalFailureRequest, MarkArrivedRequest
+from app.services.outcome import mark_arrived, mark_no_show, mark_technical_failure
 from app.services.policy import resolve_effective_policy
 
 router = APIRouter(tags=["internal"])
@@ -148,233 +140,25 @@ def internal_mark_arrived(
     )
 
 
-@router.get("/clinics/{clinic_id}/pending-future-appointments")
-def internal_get_clinic_pending_future_appointments(
-    clinic_id: UUID = Path(...),
+@router.post("/appointments/{appointment_id}/mark-technical-failure", response_model=AppointmentOutcomeResponse)
+def internal_mark_technical_failure(
+    request: InternalTechnicalFailureRequest,
+    appointment_id: UUID = Path(...),
     db: Session = Depends(get_db),
-) -> dict:
-    now = datetime.utcnow()
-    pending_statuses = {"scheduled", "pending_doctor", "confirmed", "pending_payment"}
-    pending_query = (
-        db.query(Appointment)
-        .filter(
-            Appointment.clinic_id == clinic_id,
-            Appointment.status.in_(pending_statuses),
-            (
-                (Appointment.appointment_date > now.date())
-                | (
-                    (Appointment.appointment_date == now.date())
-                    & (Appointment.start_time >= now.time())
-                )
-            ),
-        )
+) -> AppointmentOutcomeResponse:
+    appt = mark_technical_failure(
+        db,
+        appointment_id=appointment_id,
+        actor_role=request.mark_by,
+        actor_user_id="internal-system",
+        reason=request.reason,
     )
-    count = pending_query.count()
-    return {"pending_future_appointments": count}
-
-
-@router.get("/appointments/pending-future")
-def internal_get_doctor_pending_future_appointments(
-    doctor_id: UUID = Query(..., description="Doctor UUID"),
-    clinic_id: UUID = Query(..., description="Clinic UUID"),
-    db: Session = Depends(get_db),
-) -> dict:
-    now = datetime.utcnow()
-    pending_statuses = {"scheduled", "pending_doctor", "confirmed", "pending_payment"}
-    pending_query = (
-        db.query(Appointment)
-        .filter(
-            Appointment.doctor_id == doctor_id,
-            Appointment.clinic_id == clinic_id,
-            Appointment.status.in_(pending_statuses),
-            (
-                (Appointment.appointment_date > now.date())
-                | (
-                    (Appointment.appointment_date == now.date())
-                    & (Appointment.start_time >= now.time())
-                )
-            ),
-        )
+    return AppointmentOutcomeResponse(
+        appointment_id=appt.appointment_id,
+        status=appt.status,
+        changed_at=(appt.technical_failure_at or datetime.now()).isoformat(),
+        message="Appointment marked as technical failure",
     )
-    count = pending_query.count()
-    return {"pending_future_appointments": count}
-
-
-@router.get("/appointments/pending-future/doctor/{doctor_id}")
-def internal_get_doctor_pending_future_appointments_all(
-    doctor_id: UUID,
-    clinic_id: UUID | None = Query(None, description="Clinic UUID to restrict the count"),
-    db: Session = Depends(get_db),
-) -> dict:
-    now = datetime.utcnow()
-    pending_statuses = {"scheduled", "pending_doctor", "confirmed", "pending_payment"}
-    query = db.query(Appointment).filter(
-        Appointment.doctor_id == doctor_id,
-        Appointment.status.in_(pending_statuses),
-        (
-            (Appointment.appointment_date > now.date())
-            | (
-                (Appointment.appointment_date == now.date())
-                & (Appointment.start_time >= now.time())
-            )
-        ),
-    )
-    if clinic_id is not None:
-        query = query.filter(Appointment.clinic_id == clinic_id)
-
-    count = query.count()
-    return {"pending_future_appointments": count}
-
-
-@router.get("/clinics/{clinic_id}/appointments", response_model=AppointmentListPaginatedResponse)
-def internal_get_clinic_appointments(
-    clinic_id: UUID = Path(...),
-    date: date | None = Query(None, description="Filter by appointment date"),
-    status: str | None = Query(None, description="Filter by appointment status"),
-    consultation_type: str | None = Query(None, description="Filter by consultation type"),
-    page: int = Query(1, ge=1, description="Page number"),
-    size: int = Query(20, ge=1, le=100, description="Items per page"),
-    db: Session = Depends(get_db),
-) -> AppointmentListPaginatedResponse:
-    query = (
-        db.query(Appointment, Patient)
-        .join(Patient, Appointment.patient_id == Patient.patient_id)
-        .filter(Appointment.clinic_id == clinic_id)
-    )
-
-    if date is not None:
-        query = query.filter(Appointment.appointment_date == date)
-    if status is not None:
-        query = query.filter(Appointment.status == status)
-    if consultation_type is not None:
-        query = query.filter(Appointment.appointment_type == consultation_type)
-
-    total = query.count()
-    offset = (page - 1) * size
-    results = (
-        query.order_by(desc(Appointment.appointment_date), desc(Appointment.start_time))
-        .offset(offset)
-        .limit(size)
-        .all()
-    )
-
-    items = []
-    for appt, patient in results:
-        items.append(
-            AppointmentListItemResponse(
-                appointment_id=appt.appointment_id,
-                doctor_id=appt.doctor_id or UUID(int=0),
-                doctor_name=appt.doctor_name,
-                clinic_id=appt.clinic_id or UUID(int=0),
-                clinic_name=appt.clinic_name,
-                patient_id=appt.patient_id,
-                patient_name=patient.full_name,
-                date=appt.appointment_date,
-                start_time=appt.start_time.strftime("%H:%M"),
-                end_time=appt.end_time.strftime("%H:%M"),
-                status=appt.status,
-                payment_status=appt.payment_status,
-                consultation_type=appt.appointment_type,
-            )
-        )
-
-    has_more = (offset + len(items)) < total
-    return AppointmentListPaginatedResponse(
-        items=items,
-        total=total,
-        page=page,
-        size=size,
-        has_more=has_more,
-    )
-
-
-@router.post("/doctor-events")
-def internal_receive_doctor_event(
-    event: DoctorEventRequest,
-) -> dict:
-    """Accept published doctor profile events from doctor-service for downstream systems."""
-    # TODO: downstream services can subscribe to these events via message bus or direct HTTP.
-    return {"status": "accepted", "event_type": event.event_type}
-
-
-@router.get("/appointments/pending-future/patient/user/{user_id}")
-def internal_get_patient_pending_future_appointments_by_user(
-    user_id: UUID,
-    db: Session = Depends(get_db),
-) -> dict:
-    patient = db.query(Patient).filter(Patient.user_id == user_id).first()
-    if not patient:
-        return {"pending_future_appointments": 0}
-
-    now = datetime.utcnow()
-    pending_statuses = {"scheduled", "confirmed", "pending_payment"}
-    pending_query = (
-        db.query(Appointment)
-        .filter(
-            Appointment.patient_id == patient.patient_id,
-            Appointment.status.in_(pending_statuses),
-            (
-                (Appointment.appointment_date > now.date())
-                | (
-                    (Appointment.appointment_date == now.date())
-                    & (Appointment.start_time >= now.time())
-                )
-            ),
-        )
-    )
-    count = pending_query.count()
-    return {"pending_future_appointments": count}
-
-
-@router.get("/clinics/{clinic_id}/dashboard")
-def internal_get_clinic_dashboard(
-    clinic_id: UUID = Path(...),
-    db: Session = Depends(get_db),
-) -> dict:
-    today = datetime.utcnow().date()
-    base_query = db.query(Appointment).filter(
-        Appointment.clinic_id == clinic_id,
-        Appointment.appointment_date == today,
-    )
-    total_appointments = base_query.count()
-    completed_consultations = base_query.filter(Appointment.status == "completed").count()
-    cancellations = base_query.filter(Appointment.status == "cancelled").count()
-    return {
-        "total_appointments": total_appointments,
-        "completed_consultations": completed_consultations,
-        "cancellations": cancellations,
-    }
-
-
-@router.get("/platform/active-patients")
-def internal_get_active_patients(db: Session = Depends(get_db)) -> dict:
-    cutoff = (datetime.utcnow() - timedelta(days=30)).date()
-    active_statuses = {"scheduled", "confirmed", "in_progress", "arrived", "completed", "no_show"}
-    query = (
-        db.query(Appointment.patient_id)
-        .filter(
-            Appointment.appointment_date >= cutoff,
-            Appointment.status.in_(active_statuses),
-        )
-        .distinct()
-    )
-    return {"active_patients": query.count()}
-
-
-@router.get("/platform/daily-bookings")
-def internal_get_daily_bookings(
-    target_date: date | None = Query(None, description="Target date for daily bookings."),
-    db: Session = Depends(get_db),
-) -> dict:
-    booking_date = target_date or datetime.utcnow().date()
-    query = (
-        db.query(Appointment)
-        .filter(
-            Appointment.appointment_date == booking_date,
-            Appointment.status != "cancelled",
-        )
-    )
-    return {"daily_bookings": query.count()}
 
 
 @router.get("/policies/effective")

@@ -1,6 +1,9 @@
 import httpx
 from typing import Optional
 from app.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SMSService:
     @staticmethod
@@ -11,7 +14,8 @@ class SMSService:
         trimmed_message = message[:160]
         
         if not settings.TEXT_LK_API_TOKEN:
-            return True
+            logger.error("TEXT_LK_API_TOKEN is missing; cannot send SMS.")
+            return False
 
         headers = {
             "Authorization": f"Bearer {settings.TEXT_LK_API_TOKEN}",
@@ -33,7 +37,9 @@ class SMSService:
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("status") == "success"
+                logger.error("Text.lk returned non-200 response: %s %s", response.status_code, response.text)
                 return False
 
-        except Exception:
+        except Exception as exc:
+            logger.error("SMS send failed: %s", exc)
             return False

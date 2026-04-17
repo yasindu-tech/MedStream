@@ -271,6 +271,20 @@ VALUES
     ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'saturday',  '09:00', '13:00', 20, 'physical', 'active')
 ON CONFLICT DO NOTHING;
 
+-- Ensure Dr. Anura is telemedicine-enabled (weekday afternoon slots)
+INSERT INTO admin.doctor_availability (doctor_id, clinic_id, day_of_week, start_time, end_time, slot_duration, consultation_type, status)
+VALUES
+    ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'monday',    '14:00', '17:00', 30, 'telemedicine', 'active'),
+    ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'tuesday',   '14:00', '17:00', 30, 'telemedicine', 'active'),
+    ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'wednesday', '14:00', '17:00', 30, 'telemedicine', 'active'),
+    ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'thursday',  '14:00', '17:00', 30, 'telemedicine', 'active'),
+    ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'friday',    '14:00', '17:00', 30, 'telemedicine', 'active')
+ON CONFLICT DO NOTHING;
+
+UPDATE admin.doctors
+SET consultation_mode = 'telemedicine'
+WHERE doctor_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
 INSERT INTO admin.clinic_payment_accounts (clinic_id, provider_name, account_reference, verification_status)
 VALUES
     ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'PayHere',   'PAYHERE-CHC-001', 'verified'),
