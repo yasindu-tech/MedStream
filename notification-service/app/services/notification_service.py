@@ -307,6 +307,12 @@ async def seed_default_templates():
             "body": "Hello {patient_name}, your appointment with {doctor_name} has been rescheduled to {date} at {time}."
         },
         {
+            "event_type": "clinic.admin.onboarding",
+            "channel": "email",
+            "subject": "Your clinic account is ready",
+            "body": "Hello,\n\nYour clinic \"{clinic_name}\" account has been created successfully.\n\nLogin email: {login_email}\nTemporary password: {temporary_password}\nLogin here: {login_url}\n\nPlease sign in and reset your password immediately.\n"
+        },
+        {
             "event_type": "account.verification",
             "channel": "email",
             "subject": "Verify Your Account",
