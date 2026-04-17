@@ -64,6 +64,7 @@ class PatientProfileResponse(BaseModel):
     gender: Optional[str] = None
     nic_passport: Optional[str] = None
     profile_status: str
+    profile_completion: int = 0
     created_at: datetime
 
     class Config:
