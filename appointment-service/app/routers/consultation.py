@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.middleware import require_roles
 from app.schemas import (
+    DoctorAIPatientOverviewResponse,
     AppointmentActionRequest,
     AppointmentListPaginatedResponse,
     AppointmentNoteRequest,
@@ -23,6 +24,7 @@ from app.schemas import (
     PrescriptionRequest,
     PrescriptionResponse,
 )
+from app.services.ai_client import get_doctor_ai_overview
 from app.services.consultation import (
     create_appointment_note,
     create_patient_document,
@@ -233,6 +235,18 @@ def doctor_patient_summary(
 ) -> PatientSummaryResponse:
     summary = get_patient_summary(db, appointment_id=appointment_id, doctor_user_id=user["sub"])
     return PatientSummaryResponse(**summary)
+
+
+@router.get("/{appointment_id}/ai-overview", response_model=DoctorAIPatientOverviewResponse)
+def doctor_ai_patient_overview(
+    appointment_id: UUID = Path(...),
+    user: dict = Depends(require_roles("doctor")),
+) -> DoctorAIPatientOverviewResponse:
+    payload = get_doctor_ai_overview(
+        appointment_id=appointment_id,
+        doctor_user_id=user["sub"],
+    )
+    return DoctorAIPatientOverviewResponse(**payload)
 
 
 @router.post("/{appointment_id}/patient-documents", response_model=PatientDocumentResponse, status_code=201)

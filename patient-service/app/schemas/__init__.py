@@ -256,3 +256,11 @@ class MedicalDocumentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class InternalPatientMedicalSummaryResponse(BaseModel):
+    profile: PatientProfilePageResponse
+    allergies: list[AllergyResponse]
+    chronic_conditions: list[ChronicConditionResponse]
+    prescriptions: list[PatientPrescriptionResponse]
+    documents: list[MedicalDocumentResponse]
