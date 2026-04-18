@@ -6,7 +6,7 @@ from typing import Any, Optional
 from urllib.parse import urlparse
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class BloodGroup(str, Enum):
@@ -264,3 +264,40 @@ class InternalPatientMedicalSummaryResponse(BaseModel):
     chronic_conditions: list[ChronicConditionResponse]
     prescriptions: list[PatientPrescriptionResponse]
     documents: list[MedicalDocumentResponse]
+
+
+class ConsultationSummaryUpsertRequest(BaseModel):
+    appointment_id: UUID
+    status: str
+    llm_used: bool = False
+    doctor_name: Optional[str] = None
+    diagnosis: Optional[str] = None
+    medications: list[dict[str, Any]] = Field(default_factory=list)
+    sections: list[dict[str, Any]] = Field(default_factory=list)
+    summary_text: str
+    summary_html: str
+    missing_fields: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    generated_at: Optional[datetime] = None
+
+
+class ConsultationSummaryResponse(BaseModel):
+    summary_id: UUID
+    appointment_id: UUID
+    patient_id: UUID
+    status: str
+    llm_used: bool
+    doctor_name: Optional[str] = None
+    diagnosis: Optional[str] = None
+    medications: list[dict[str, Any]] = Field(default_factory=list)
+    sections: list[dict[str, Any]] = Field(default_factory=list)
+    summary_text: str
+    summary_html: str
+    missing_fields: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    generated_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

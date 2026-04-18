@@ -73,3 +73,25 @@ def get_doctor_ai_overview(*, appointment_id: UUID, doctor_user_id: str) -> dict
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AI service is currently unavailable. Please try again later.",
         )
+
+
+def get_post_consultation_summary(*, appointment_id: UUID) -> dict:
+    url = f"{settings.AI_SERVICE_URL}/internal/post-consultation-summary"
+    headers = {"X-Internal-Service-Token": settings.INTERNAL_SERVICE_TOKEN}
+    payload = {"appointment_id": str(appointment_id)}
+
+    try:
+        with httpx.Client(timeout=45.0) as client:
+            response = client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"AI service returned an error: {exc.response.status_code}",
+        )
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI service is currently unavailable. Please try again later.",
+        )

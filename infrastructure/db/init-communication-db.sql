@@ -190,5 +190,6 @@ INSERT INTO notification_templates (event_type, channel, subject, body, status) 
 ('patient.medical_info.updated', 'in_app', 'Medical Information Updated', 'Your {section} entry ''{item_name}'' was {action}.', 'active'),
 ('patient.report.uploaded', 'in_app', 'Medical Report Uploaded', 'Your report ''{file_name}'' ({document_type}) was uploaded successfully.', 'active'),
 ('patient.report.updated', 'in_app', 'Medical Report Updated', 'Your report ''{file_name}'' metadata was updated.', 'active'),
+('consultation.summary.available', 'email', 'Your Post-Consultation Care Summary', '{summary_html}', 'active'),
 ('patient.report.deleted', 'in_app', 'Medical Report Deleted', 'Your report ''{file_name}'' ({document_type}) was removed.', 'active')
 ON CONFLICT (event_type) DO NOTHING;

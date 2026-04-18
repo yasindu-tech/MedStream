@@ -41,8 +41,16 @@ async def process_notification_queue():
                 success = False
                 if item.channel == "email":
                     email_payload = item.payload if isinstance(item.payload, dict) else {}
+                    to_email = email_payload.get("email")
+                    if not to_email:
+                        logger.error(
+                            "Cannot send email for notification %s: Missing recipient email.",
+                            item.notification_id,
+                        )
+                        item.status = "failed"
+                        continue
                     success = await EmailService.send_email(
-                        to_email=email_payload.get("email", "patient@medstream.lk"),
+                        to_email=to_email,
                         subject=item.title,
                         html_content=_build_email_html(
                             title=item.title,

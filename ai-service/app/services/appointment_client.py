@@ -33,3 +33,26 @@ def get_pre_consultation_context(*, appointment_id: UUID, doctor_user_id: str) -
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Appointment service is currently unavailable.",
         )
+
+
+def get_post_consultation_context(*, appointment_id: UUID) -> dict:
+    url = f"{settings.APPOINTMENT_SERVICE_URL}/internal/appointments/{appointment_id}/post-consultation-context"
+    headers = {"X-Internal-Service-Token": settings.INTERNAL_SERVICE_TOKEN}
+
+    try:
+        with httpx.Client(timeout=settings.POST_CONSULTATION_HTTP_TIMEOUT_SECONDS) as client:
+            response = client.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Appointment service returned an error: {exc.response.status_code}",
+        )
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Appointment service is currently unavailable.",
+        )

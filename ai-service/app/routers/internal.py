@@ -8,8 +8,11 @@ from app.schemas import (
     ChatbotRecommendationInternalResponse,
     DoctorPatientOverviewRequest,
     DoctorPatientOverviewResponse,
+    PostConsultationSummaryRequest,
+    PostConsultationSummaryResponse,
 )
 from app.services.overview import generate_doctor_patient_overview
+from app.services.post_consultation_summary import generate_post_consultation_summary
 from app.services.recommendation import recommend_doctors_from_symptoms
 
 router = APIRouter(tags=["Internal Chatbot"])
@@ -56,3 +59,15 @@ def doctor_patient_overview_internal(
         doctor_user_id=request.doctor_user_id,
     )
     return DoctorPatientOverviewResponse(**payload)
+
+
+@router.post(
+    "/post-consultation-summary",
+    response_model=PostConsultationSummaryResponse,
+)
+def post_consultation_summary_internal(
+    request: PostConsultationSummaryRequest,
+    _: None = Depends(_require_internal_service_auth),
+) -> PostConsultationSummaryResponse:
+    payload = generate_post_consultation_summary(appointment_id=request.appointment_id)
+    return PostConsultationSummaryResponse(**payload)

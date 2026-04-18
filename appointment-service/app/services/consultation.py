@@ -15,6 +15,7 @@ from app.models import (
     Appointment,
     AppointmentNote,
     AppointmentStatusHistory,
+    FollowUpSuggestion,
     Patient,
     Prescription,
     PatientDocument,
@@ -336,6 +337,122 @@ def list_patient_documents(db: Session, appointment_id: UUID, doctor_user_id: st
         .order_by(PatientDocument.uploaded_at.desc())
         .all()
     )
+
+
+def get_post_consultation_context(
+    db: Session,
+    *,
+    appointment_id: UUID,
+) -> dict[str, Any]:
+    appt = _load_appointment(db, appointment_id)
+    if appt.status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Post-consultation context is available only after appointment completion.",
+        )
+    patient = db.query(Patient).filter(Patient.patient_id == appt.patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient profile not found.")
+
+    note_payload: dict[str, Any] = {
+        "diagnosis": None,
+        "symptoms": None,
+        "advice": None,
+        "created_at": None,
+    }
+    try:
+        note_stmt = text(
+            """
+            SELECT diagnosis, symptoms, advice, created_at
+            FROM patientcare.consultation_notes
+            WHERE appointment_id = :appointment_id
+            LIMIT 1
+            """
+        )
+        note_row = db.execute(note_stmt, {"appointment_id": appointment_id}).mappings().first()
+        if note_row:
+            note_payload = {
+                "diagnosis": note_row.get("diagnosis"),
+                "symptoms": note_row.get("symptoms"),
+                "advice": note_row.get("advice"),
+                "created_at": note_row.get("created_at").isoformat() if note_row.get("created_at") else None,
+            }
+    except SQLAlchemyError:
+        db.rollback()
+
+    prescription = (
+        db.query(Prescription)
+        .filter(Prescription.appointment_id == appointment_id)
+        .order_by(desc(Prescription.finalized_at), desc(Prescription.created_at))
+        .first()
+    )
+    followup = (
+        db.query(FollowUpSuggestion)
+        .filter(FollowUpSuggestion.original_appointment_id == appointment_id)
+        .order_by(desc(FollowUpSuggestion.created_at))
+        .first()
+    )
+
+    def _to_medication_items(payload: Any) -> list[dict[str, Any]]:
+        if not isinstance(payload, list):
+            return []
+        normalized: list[dict[str, Any]] = []
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            normalized.append(
+                {
+                    "name": str(item.get("name") or "Medication"),
+                    "dosage": item.get("dosage"),
+                    "frequency": item.get("frequency"),
+                    "duration": item.get("duration"),
+                    "notes": item.get("notes"),
+                }
+            )
+        return normalized
+
+    prescription_payload = None
+    if prescription:
+        prescription_payload = {
+            "prescription_id": prescription.prescription_id,
+            "instructions": prescription.instructions,
+            "status": prescription.status,
+            "issued_at": prescription.issued_at.isoformat() if prescription.issued_at else None,
+            "medications": _to_medication_items(prescription.medications),
+        }
+
+    followup_payload = None
+    if followup:
+        followup_payload = {
+            "suggestion_id": followup.suggestion_id,
+            "suggested_date": followup.suggested_date,
+            "suggested_start_time": followup.suggested_start_time.strftime("%H:%M"),
+            "consultation_type": followup.consultation_type,
+            "status": followup.status,
+            "notes": followup.notes,
+        }
+
+    return {
+        "patient": {
+            "patient_id": patient.patient_id,
+            "user_id": patient.user_id,
+            "full_name": patient.full_name,
+            "email": patient.email,
+        },
+        "appointment": {
+            "appointment_id": appt.appointment_id,
+            "appointment_date": appt.appointment_date,
+            "start_time": appt.start_time.strftime("%H:%M"),
+            "end_time": appt.end_time.strftime("%H:%M"),
+            "appointment_type": appt.appointment_type,
+            "appointment_status": appt.status,
+            "doctor_name": appt.doctor_name,
+            "clinic_name": appt.clinic_name,
+        },
+        "consultation_note": note_payload,
+        "prescription": prescription_payload,
+        "follow_up": followup_payload,
+    }
 
 
 def get_pre_consultation_context(

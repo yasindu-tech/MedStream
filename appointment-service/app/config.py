@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+psycopg2://dev_user:dev_password@localhost:5434/medstream_patientcare"
     DOCTOR_SERVICE_URL: str = "http://doctor-service:8000"
     CLINIC_SERVICE_URL: str = "http://clinic-service:8000"
+    PATIENT_SERVICE_URL: str = "http://patient-service:8000"
     NOTIFICATION_SERVICE_URL: str = "http://notification-service:8000"
     PAYMENT_SERVICE_URL: str = "http://payment-service:8000"
     TELEMEDICINE_SERVICE_URL: str = "http://telemedicine-service:8000"

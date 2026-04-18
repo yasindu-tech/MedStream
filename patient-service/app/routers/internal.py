@@ -6,8 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Allergy, ChronicCondition, MedicalDocument, Patient, Prescription
-from app.schemas import InternalPatientMedicalSummaryResponse, PatientProfileCreate, PatientProfileResponse
+from app.models import Allergy, ChronicCondition, ConsultationSummary, MedicalDocument, Patient, Prescription
+from app.schemas import (
+    ConsultationSummaryResponse,
+    ConsultationSummaryUpsertRequest,
+    InternalPatientMedicalSummaryResponse,
+    PatientProfileCreate,
+    PatientProfileResponse,
+)
 
 router = APIRouter(tags=["internal"])
 
@@ -85,3 +91,42 @@ def get_internal_patient_medical_summary(
         prescriptions=prescriptions,
         documents=documents,
     )
+
+
+@router.post("/patients/{patient_id}/consultation-summaries", response_model=ConsultationSummaryResponse)
+def upsert_internal_consultation_summary(
+    patient_id: UUID,
+    request: ConsultationSummaryUpsertRequest,
+    db: Session = Depends(get_db),
+) -> ConsultationSummaryResponse:
+    patient = db.query(Patient).filter(Patient.patient_id == patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient profile not found")
+
+    summary = (
+        db.query(ConsultationSummary)
+        .filter(ConsultationSummary.appointment_id == request.appointment_id)
+        .first()
+    )
+    if not summary:
+        summary = ConsultationSummary(
+            appointment_id=request.appointment_id,
+            patient_id=patient_id,
+        )
+        db.add(summary)
+
+    summary.status = request.status
+    summary.llm_used = request.llm_used
+    summary.doctor_name = request.doctor_name
+    summary.diagnosis = request.diagnosis
+    summary.medications = request.medications
+    summary.sections = request.sections
+    summary.summary_text = request.summary_text
+    summary.summary_html = request.summary_html
+    summary.missing_fields = request.missing_fields
+    summary.warnings = request.warnings
+    summary.generated_at = request.generated_at or summary.generated_at
+
+    db.commit()
+    db.refresh(summary)
+    return summary

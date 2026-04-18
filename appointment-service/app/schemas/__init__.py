@@ -253,6 +253,64 @@ class InternalPreConsultationContextResponse(BaseModel):
     recent_reports: List[PatientDocumentResponse]
 
 
+class InternalPostConsultationMedicationItem(BaseModel):
+    name: str
+    dosage: Optional[str] = None
+    frequency: Optional[str] = None
+    duration: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class InternalPostConsultationNote(BaseModel):
+    diagnosis: Optional[str] = None
+    symptoms: Optional[str] = None
+    advice: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class InternalPostConsultationPrescription(BaseModel):
+    prescription_id: UUID
+    instructions: Optional[str] = None
+    status: str
+    issued_at: Optional[str] = None
+    medications: List[InternalPostConsultationMedicationItem] = []
+
+
+class InternalPostConsultationFollowUp(BaseModel):
+    suggestion_id: UUID
+    suggested_date: date
+    suggested_start_time: str
+    consultation_type: str
+    status: str
+    notes: Optional[str] = None
+
+
+class InternalPostConsultationPatient(BaseModel):
+    patient_id: UUID
+    user_id: Optional[UUID] = None
+    full_name: str
+    email: Optional[str] = None
+
+
+class InternalPostConsultationAppointment(BaseModel):
+    appointment_id: UUID
+    appointment_date: date
+    start_time: str
+    end_time: str
+    appointment_type: str
+    appointment_status: str
+    doctor_name: Optional[str] = None
+    clinic_name: Optional[str] = None
+
+
+class InternalPostConsultationContextResponse(BaseModel):
+    patient: InternalPostConsultationPatient
+    appointment: InternalPostConsultationAppointment
+    consultation_note: InternalPostConsultationNote
+    prescription: Optional[InternalPostConsultationPrescription] = None
+    follow_up: Optional[InternalPostConsultationFollowUp] = None
+
+
 class AIDoctorRiskFlag(BaseModel):
     severity: str
     title: str
@@ -565,4 +623,3 @@ class ChatbotRecommendationResponse(BaseModel):
     total: int
     empty_state: bool
     llm_used: bool
-
