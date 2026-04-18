@@ -1,1 +1,1 @@
-from . import events, inbox, templates, preferences
+from . import events, inbox, templates, preferences, contact

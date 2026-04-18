@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
-from app.routers import events, inbox, templates, preferences
+from app.routers import events, inbox, templates, preferences, contact
 from app.services.notification_service import seed_default_templates, process_notification_queue
 from app.services.websocket_service import manager
 from app.middleware import get_current_user
@@ -50,10 +50,11 @@ app = FastAPI(
 
 # CORS middleware
 app.add_middleware(
-    CORSMiddleware, 
-    allow_origins=["*"], 
-    allow_methods=["*"], 
-    allow_headers=["*"]
+    CORSMiddleware,
+    allow_origins=settings.cors_allowed_origins,
+    allow_credentials=settings.cors_allow_credentials,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include routers
@@ -62,6 +63,7 @@ app.include_router(events.router,      prefix="/api/notifications", tags=["event
 app.include_router(inbox.router,       prefix="/api/notifications", tags=["inbox"])
 app.include_router(templates.router,   prefix="/api/notifications", tags=["templates"])
 app.include_router(preferences.router, prefix="/api/notifications", tags=["preferences"])
+app.include_router(contact.router,     prefix="/api/notifications", tags=["contact"])
 
 @app.get("/health")
 async def health():

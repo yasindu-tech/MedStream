@@ -331,6 +331,12 @@ async def seed_default_templates():
             "body": "Your account has been suspended. Reason: {reason}"
         },
         {
+            "event_type": "clinic.join_request",
+            "channel": "email",
+            "subject": "New Clinic Join Request: {clinic_name}",
+            "body": "A new clinic join request has been submitted.\n\nClinic Name: {clinic_name}\nClinic Email: {clinic_email}\nClinic Phone: {clinic_phone}\nContact Person: {contact_person}\n"
+        },
+        {
             "event_type": "doctor.verification.approved",
             "channel": "email",
             "subject": "Doctor Verification Approved",

@@ -80,3 +80,14 @@ class QueueStatusResponse(NotificationBase):
     retry_count: int
     processed_at: Optional[datetime]
     created_at: datetime
+
+
+class ContactUsRequest(NotificationBase):
+    email: str = Field(min_length=5, max_length=254)
+    phone: str = Field(min_length=7, max_length=30)
+    message: str = Field(min_length=5, max_length=4000)
+
+
+class ContactUsResponse(NotificationBase):
+    status: str
+    detail: str
