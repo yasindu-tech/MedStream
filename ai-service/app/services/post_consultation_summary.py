@@ -13,9 +13,9 @@ def generate_post_consultation_summary(*, appointment_id: UUID) -> dict[str, Any
     context = get_post_consultation_context(appointment_id=appointment_id)
     appointment = context.get("appointment", {})
     patient = context.get("patient", {})
-    note = context.get("consultation_note", {})
-    prescription = context.get("prescription", {})
-    follow_up = context.get("follow_up", {})
+    note = context.get("consultation_note") or {}
+    prescription = context.get("prescription") or {}
+    follow_up = context.get("follow_up") or {}
 
     patient_email = _normalize_text(patient.get("email"))
     diagnosis = _normalize_text(note.get("diagnosis"))

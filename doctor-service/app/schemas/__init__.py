@@ -109,6 +109,10 @@ class DoctorUpdateRequest(BaseModel):
     consultation_fee: Optional[float] = None
 
 
+class DoctorConsultationFeeUpdateRequest(BaseModel):
+    consultation_fee: float
+
+
 class DoctorVisibilityRequest(BaseModel):
     visible: bool
 
@@ -286,4 +290,3 @@ class SlotValidationResponse(BaseModel):
 class DoctorIdResponse(BaseModel):
     doctor_id: UUID
     full_name: str
-

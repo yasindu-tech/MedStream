@@ -220,6 +220,17 @@ class PatientPrescriptionResponse(BaseModel):
         from_attributes = True
 
 
+class PatientPrescriptionCreate(BaseModel):
+    appointment_id: UUID
+    doctor_id: Optional[UUID] = None
+    clinic_id: Optional[UUID] = None
+    medications: list[dict[str, Any]] = Field(default_factory=list)
+    instructions: Optional[str] = None
+    status: str = "draft"
+    issued_at: Optional[datetime] = None
+    finalized_at: Optional[datetime] = None
+
+
 class MedicalDocumentUpdate(BaseModel):
     document_type: Optional[str] = None
     visibility: Optional[str] = None
@@ -264,6 +275,15 @@ class InternalPatientMedicalSummaryResponse(BaseModel):
     chronic_conditions: list[ChronicConditionResponse]
     prescriptions: list[PatientPrescriptionResponse]
     documents: list[MedicalDocumentResponse]
+
+
+class PatientMedicalSummaryResponse(BaseModel):
+    profile: PatientProfilePageResponse
+    allergies: list[AllergyResponse]
+    chronic_conditions: list[ChronicConditionResponse]
+    prescriptions: list[PatientPrescriptionResponse]
+    documents: list[MedicalDocumentResponse]
+    consultation_summaries: list[ConsultationSummaryResponse]
 
 
 class ConsultationSummaryUpsertRequest(BaseModel):
