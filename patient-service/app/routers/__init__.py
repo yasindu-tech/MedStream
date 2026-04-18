@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -19,7 +20,9 @@ from app.schemas import (
     ChronicConditionUpdate,
     MedicalDocumentResponse,
     MedicalDocumentUpdate,
+    PatientMedicalSummaryResponse,
     PatientProfilePageResponse,
+    PatientPrescriptionCreate,
     PatientPrescriptionResponse,
     PatientProfileResponse,
     PatientProfileUpdate,
@@ -99,6 +102,51 @@ def list_consultation_summaries(patient_id: UUID, db: Session = Depends(get_db))
         .all()
     )
     return summaries
+
+
+@router.get("/patients/{patient_id}/medical-summary", response_model=PatientMedicalSummaryResponse)
+def get_patient_medical_summary(patient_id: UUID, db: Session = Depends(get_db)) -> PatientMedicalSummaryResponse:
+    patient = _get_patient_or_404(db, patient_id)
+    
+    allergies = (
+        db.query(Allergy)
+        .filter(Allergy.patient_id == patient_id)
+        .order_by(Allergy.allergy_name.asc())
+        .all()
+    )
+    chronic_conditions = (
+        db.query(ChronicCondition)
+        .filter(ChronicCondition.patient_id == patient_id)
+        .order_by(ChronicCondition.condition_name.asc())
+        .all()
+    )
+    prescriptions = (
+        db.query(Prescription)
+        .filter(Prescription.patient_id == patient_id)
+        .order_by(Prescription.created_at.desc())
+        .all()
+    )
+    documents = (
+        db.query(MedicalDocument)
+        .filter(MedicalDocument.patient_id == patient_id)
+        .order_by(MedicalDocument.uploaded_at.desc())
+        .all()
+    )
+    consultation_summaries = (
+        db.query(ConsultationSummary)
+        .filter(ConsultationSummary.patient_id == patient_id)
+        .order_by(ConsultationSummary.generated_at.desc())
+        .all()
+    )
+
+    return PatientMedicalSummaryResponse(
+        profile=patient,
+        allergies=allergies,
+        chronic_conditions=chronic_conditions,
+        prescriptions=prescriptions,
+        documents=documents,
+        consultation_summaries=consultation_summaries,
+    )
 
 
 @router.patch("/patients/{patient_id}", response_model=PatientProfilePageResponse)
@@ -400,6 +448,76 @@ def list_patient_prescriptions(patient_id: UUID, db: Session = Depends(get_db)) 
         .all()
     )
     return prescriptions
+
+
+@router.post("/patients/{patient_id}/prescriptions", response_model=PatientPrescriptionResponse, status_code=status.HTTP_201_CREATED)
+def create_patient_prescription(
+    patient_id: UUID,
+    request: PatientPrescriptionCreate,
+    db: Session = Depends(get_db),
+) -> PatientPrescriptionResponse:
+    patient = _get_patient_or_404(db, patient_id)
+    prescription = Prescription(
+        appointment_id=request.appointment_id,
+        patient_id=patient_id,
+        doctor_id=request.doctor_id,
+        clinic_id=request.clinic_id,
+        medications=request.medications,
+        instructions=request.instructions,
+        status=request.status,
+        issued_at=request.issued_at or datetime.now(),
+        finalized_at=request.finalized_at,
+    )
+    db.add(prescription)
+    db.commit()
+    db.refresh(prescription)
+
+    _emit_patient_event(
+        patient,
+        event_type="patient.medical_info.updated",
+        payload={
+            "patient_id": str(patient.patient_id),
+            "patient_name": patient.full_name,
+            "section": "prescription",
+            "action": "created",
+            "item_name": "prescription",
+        },
+    )
+
+    return prescription
+
+
+@router.delete("/patients/{patient_id}/prescriptions/{prescription_id}")
+def delete_patient_prescription(
+    patient_id: UUID,
+    prescription_id: UUID,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    patient = _get_patient_or_404(db, patient_id)
+    prescription = (
+        db.query(Prescription)
+        .filter(Prescription.prescription_id == prescription_id, Prescription.patient_id == patient_id)
+        .first()
+    )
+    if not prescription:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prescription not found")
+
+    db.delete(prescription)
+    db.commit()
+
+    _emit_patient_event(
+        patient,
+        event_type="patient.medical_info.updated",
+        payload={
+            "patient_id": str(patient.patient_id),
+            "patient_name": patient.full_name,
+            "section": "prescription",
+            "action": "deleted",
+            "item_name": "prescription",
+        },
+    )
+
+    return {"message": "Prescription deleted"}
 
 
 @router.post("/patients/{patient_id}/documents", response_model=MedicalDocumentResponse, status_code=status.HTTP_201_CREATED)

@@ -498,6 +498,7 @@ def internal_validate_slot(
     date: date = Query(..., description="Target date (YYYY-MM-DD)"),
     start_time: str = Query(..., description="Slot start time (HH:MM)"),
     consultation_type: str = Query(..., description="'physical' or 'telemedicine'"),
+    is_followup: bool = Query(False, description="Whether this is a doctor-initiated follow-up"),
     db: Session = Depends(get_db),
 ) -> SlotValidationResponse:
     """
@@ -511,6 +512,7 @@ def internal_validate_slot(
         target_date=date,
         start_time=start_time,
         consultation_type=consultation_type,
+        is_followup=is_followup,
     )
     return SlotValidationResponse(**result)
 

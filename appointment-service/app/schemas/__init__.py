@@ -2,7 +2,7 @@
 from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
-from typing import List, Optional
+from typing import List, Optional, Literal
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
@@ -107,7 +107,7 @@ class BookAppointmentRequest(BaseModel):
     clinic_id: UUID = Field(validation_alias=AliasChoices("clinic_id", "clinicId"))
     date: date              # YYYY-MM-DD
     start_time: str = Field(validation_alias=AliasChoices("start_time", "startTime"))         # "HH:MM"
-    consultation_type: str = Field(validation_alias=AliasChoices("consultation_type", "consultationType"))  # "physical" or "telemedicine"
+    consultation_type: Literal["physical", "telemedicine"] = Field(validation_alias=AliasChoices("consultation_type", "consultationType"))
 
 
 class BookAppointmentResponse(BaseModel):
@@ -372,7 +372,7 @@ class FollowUpSuggestRequest(BaseModel):
     original_appointment_id: UUID
     suggested_date: date
     suggested_start_time: str  # "HH:MM"
-    consultation_type: str     # "physical" or "telemedicine"
+    consultation_type: Literal["physical", "telemedicine"]
     notes: Optional[str] = None
 
 

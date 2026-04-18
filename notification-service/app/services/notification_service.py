@@ -236,13 +236,26 @@ def _build_email_html(*, title: str | None, message: str, payload: dict[str, Any
                 if value not in (None, "")
         )
 
+        cta_button = ""
+        booking_url = payload.get("booking_url")
+        if booking_url:
+                cta_button = (
+                        f"<div style='margin-top:24px;margin-bottom:24px;text-align:center;'>"
+                        f"<a href='{booking_url}' style='display:inline-block;padding:12px 24px;background:#01BAEF;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;'>"
+                        "Book Follow-up Now"
+                        "</a>"
+                        "</div>"
+                )
+
         details_block = ""
         if detail_rows:
                 details_block = (
                         "<div style='margin-top:18px;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden;'>"
                         "<table role='presentation' cellpadding='0' cellspacing='0' width='100%' style='border-collapse:collapse;background:#F9FAFB;'>"
                         f"{detail_rows}"
-                        "</table></div>"
+                        "</table>"
+                        f"{cta_button}"
+                        "</div>"
                 )
 
         return f"""
@@ -462,6 +475,12 @@ async def seed_default_templates():
             "channel": "in_app",
             "subject": "Medical Report Deleted",
             "body": "Your report '{file_name}' ({document_type}) was removed."
+        },
+        {
+            "event_type": "followup.suggested",
+            "channel": "email",
+            "subject": "Follow-up Recommended",
+            "body": "Dr. {doctor_name} has suggested a follow-up appointment for you on {date} at {time}."
         }
     ]
 
