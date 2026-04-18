@@ -192,7 +192,11 @@ def _is_channel_enabled(channel: str, prefs: NotificationPreference | None) -> b
 
 
 def _resolve_user_contact(user_id: str) -> dict[str, Optional[str]]:
-    url = f"{settings.AUTH_SERVICE_URL}/internal/users/{user_id}"
+    auth_url = getattr(settings, "AUTH_SERVICE_URL", None)
+    if not auth_url:
+        return {"email": None, "phone": None}
+
+    url = f"{auth_url.rstrip('/')}/internal/users/{user_id}"
     try:
         with httpx.Client(timeout=3.0) as client:
             response = client.get(url)
@@ -360,6 +364,18 @@ async def seed_default_templates():
             "channel": "in_app",
             "subject": "Reschedule Recommended",
             "body": "A reschedule has been recommended for appointment {appointment_id}."
+        },
+        {
+            "event_type": "clinic.staff.onboarding",
+            "channel": "email",
+            "subject": "You have been added as clinic staff",
+            "body": "Hello,\n\nYou have been added as staff to clinic \"{clinic_name}\".\n\nLogin email: {login_email}\nTemporary password: {temporary_password}\nLogin here: {login_url}\n\nPlease sign in and reset your password immediately.\n"
+        },
+        {
+            "event_type": "doctor.onboarding",
+            "channel": "email",
+            "subject": "You have been added as a doctor",
+            "body": "Hello {doctor_name},\n\nYou have been added as a doctor to MedStream.\n\nLogin email: {login_email}\nTemporary password: {temporary_password}\nLogin here: {login_url}\n\nPlease sign in and reset your password immediately.\n"
         },
         {
             "event_type": "account.verification",

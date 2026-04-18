@@ -12,6 +12,7 @@ from app.schemas import (
     ClinicAppointmentListPaginatedResponse,
     ClinicResponse,
     CreateClinicRequest,
+    UpdateClinicRequest,
     UpdateClinicStatusRequest,
 )
 from app.services.appointment_client import get_clinic_appointments
@@ -22,6 +23,7 @@ from app.services.clinic import (
     get_clinic_by_id,
     list_clinics,
     remove_clinic,
+    update_clinic,
 )
 
 router = APIRouter(tags=["Clinics"])
@@ -43,6 +45,25 @@ def get_clinics_endpoint(
     db: Session = Depends(get_db),
 ) -> Sequence[ClinicResponse]:
     return [ClinicResponse.model_validate(clinic) for clinic in list_clinics(db=db, active_only=active_only)]
+
+
+@router.get("/{clinic_id}", response_model=ClinicResponse)
+def get_clinic_endpoint(
+    clinic_id: UUID,
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_roles("clinic_admin", "admin")),
+) -> ClinicResponse:
+    clinic = get_clinic_by_id(db, str(clinic_id))
+    if not clinic:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clinic not found.")
+    if _user["role"] == "clinic_admin":
+        assigned_clinic_id = get_clinic_admin_clinic_id(db, _user["sub"])
+        if not assigned_clinic_id or str(assigned_clinic_id) != str(clinic_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Clinic admin is not permitted to view this clinic.",
+            )
+    return ClinicResponse.model_validate(clinic)
 
 
 @router.get("/{clinic_id}/appointments", response_model=ClinicAppointmentListPaginatedResponse)
@@ -78,6 +99,29 @@ def get_clinic_appointments_endpoint(
             consultation_type=consultation_type,
         )
     )
+
+
+@router.patch("/{clinic_id}", response_model=ClinicResponse)
+def update_clinic_endpoint(
+    clinic_id: str,
+    payload: UpdateClinicRequest,
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_roles("clinic_admin", "admin")),
+) -> ClinicResponse:
+    if _user["role"] == "clinic_admin":
+        assigned_clinic_id = get_clinic_admin_clinic_id(db, _user["sub"])
+        if not assigned_clinic_id or str(assigned_clinic_id) != str(clinic_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Clinic admin is not permitted to update this clinic.",
+            )
+    clinic = update_clinic(
+        db=db,
+        clinic_id=clinic_id,
+        payload=payload,
+        changed_by=_user["sub"],
+    )
+    return ClinicResponse.model_validate(clinic)
 
 
 @router.patch("/{clinic_id}/status", response_model=ClinicResponse)

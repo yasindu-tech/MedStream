@@ -16,6 +16,14 @@ class CreateClinicRequest(BaseModel):
     email: EmailStr = Field(..., description="Contact email address")
 
 
+class UpdateClinicRequest(BaseModel):
+    clinic_name: str | None = Field(None, min_length=3, description="The clinic's display name")
+    registration_no: str | None = Field(None, min_length=3, description="Unique registration identifier")
+    address: str | None = Field(None, min_length=10, description="Physical address of the clinic")
+    phone: str | None = Field(None, min_length=7, max_length=30, description="Contact phone number")
+    email: EmailStr | None = Field(None, description="Contact email address")
+
+
 class ClinicResponse(BaseModel):
     clinic_id: UUID
     clinic_name: str
@@ -39,6 +47,14 @@ class ClinicActionResponse(BaseModel):
     clinic_id: UUID
     status: str
     message: str
+
+    class Config:
+        from_attributes = True
+
+
+class ClinicAssignmentResponse(BaseModel):
+    clinic_id: UUID
+    source: str
 
     class Config:
         from_attributes = True
@@ -125,12 +141,24 @@ class ClinicDoctorResponse(BaseModel):
         from_attributes = True
 
 
+class DoctorAppointmentCountResponse(BaseModel):
+    doctor_id: UUID | None = None
+    doctor_name: str | None = None
+    specialty: str | None = None
+    appointment_count: int
+
+    class Config:
+        from_attributes = True
+
+
 class ClinicDashboardResponse(BaseModel):
     clinic_id: UUID
     total_appointments: int
     active_doctors: int
     completed_consultations: int
     cancellations: int
+    patients_in_queue: int
+    doctor_appointment_counts: list[DoctorAppointmentCountResponse] = Field(default_factory=list)
     payment_summary: ClinicFinancialSummaryResponse
     warnings: list[str] = Field(default_factory=list)
 
