@@ -249,18 +249,13 @@ services:
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./notification-service:/app
+    env_file:
+      - ./notification-service/app/.env
     depends_on:
       communication_db:
         condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://dev_user:dev_password@communication_db:5432/medstream_communication
-      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      EMAIL_FROM: ${EMAIL_FROM:-noreply@medstream.com}
-      TEXT_LK_API_TOKEN: ${TEXT_LK_API_TOKEN:-}
-      TEXT_LK_SENDER_ID: ${TEXT_LK_SENDER_ID:-TextLKDemo}
       SECRET_KEY: ${SECRET_KEY:-your-super-secret-key-change-in-production}
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-key-change-in-production}
     ports:

@@ -119,6 +119,62 @@ def get_status_history_for_admin(
     )
 
 
+def get_clinic_operational_dashboard(
+    db: Session,
+    *,
+    clinic_id: UUID,
+    target_date: date | None = None,
+) -> dict:
+    target_date = target_date or date.today()
+    base_query = db.query(Appointment).filter(
+        Appointment.clinic_id == clinic_id,
+        Appointment.appointment_date == target_date,
+    )
+
+    total_appointments = base_query.filter(Appointment.status.notin_(["cancelled", "no_show", "technical_failure"])).count()
+    completed_consultations = base_query.filter(Appointment.status == "completed").count()
+    cancellations = base_query.filter(Appointment.status == "cancelled").count()
+    patients_in_queue = base_query.filter(
+        Appointment.status.in_(
+            ["pending_doctor", "pending_payment", "scheduled", "confirmed", "arrived", "in_progress"]
+        )
+    ).count()
+
+    doctor_rows = (
+        db.query(
+            Appointment.doctor_id,
+            Appointment.doctor_name,
+            func.count(Appointment.appointment_id).label("appointment_count"),
+        )
+        .filter(
+            Appointment.clinic_id == clinic_id,
+            Appointment.appointment_date == target_date,
+            Appointment.status.notin_(["cancelled", "no_show", "technical_failure"]),
+        )
+        .group_by(Appointment.doctor_id, Appointment.doctor_name)
+        .order_by(desc("appointment_count"), Appointment.doctor_name)
+        .limit(20)
+        .all()
+    )
+
+    doctor_appointment_counts = [
+        {
+            "doctor_id": row.doctor_id,
+            "doctor_name": row.doctor_name,
+            "appointment_count": int(row.appointment_count),
+        }
+        for row in doctor_rows
+    ]
+
+    return {
+        "total_appointments": total_appointments,
+        "completed_consultations": completed_consultations,
+        "cancellations": cancellations,
+        "patients_in_queue": patients_in_queue,
+        "doctor_appointment_counts": doctor_appointment_counts,
+    }
+
+
 def get_appointment_stats(
     db: Session,
     *,

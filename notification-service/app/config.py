@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     SERVICE_PORT: int = 8000
     CORS_ALLOW_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
 
+    AUTH_SERVICE_URL: str = "http://auth-service:8000"
+
     # SMS Settings
     TEXT_LK_API_URL: str = "https://app.text.lk/api/v3/sms/send"
     TEXT_LK_API_TOKEN: Optional[str] = "4305|BH7LMlUnffx5ubWzlASjKAPlZr4EMLmvc8toxzjU3ff572be"

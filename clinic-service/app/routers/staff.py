@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.middleware import require_roles
 from app.schemas import (
+    ClinicAssignmentResponse,
     ClinicStaffResponse,
     CreateClinicStaffRequest,
     CreateClinicStaffResponse,
@@ -17,6 +18,7 @@ from app.schemas import (
 from app.services.clinic import (
     create_clinic_staff,
     get_clinic_admin_clinic_id,
+    get_user_clinic_assignment,
     list_clinic_staff,
     remove_clinic_staff,
     update_clinic_staff,
@@ -60,6 +62,17 @@ def create_clinic_staff_endpoint(
         staff=ClinicStaffResponse.model_validate(result["staff"]),
         temporary_password=result["temporary_password"],
     )
+
+
+@router.get("/assignment", response_model=ClinicAssignmentResponse)
+def get_user_clinic_assignment_endpoint(
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_roles("clinic_admin", "clinic_staff")),
+) -> ClinicAssignmentResponse:
+    assignment = get_user_clinic_assignment(db, str(_user["sub"]))
+    if not assignment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active clinic assignment for user")
+    return ClinicAssignmentResponse.model_validate(assignment)
 
 
 @router.get("/{clinic_id}/staff", response_model=List[ClinicStaffResponse])

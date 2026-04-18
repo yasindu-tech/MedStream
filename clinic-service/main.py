@@ -8,6 +8,7 @@ from app.routers.dashboard import router as dashboard_router
 from app.routers.doctor_assignments import router as doctor_assignments_router
 from app.routers.internal import router as internal_router
 from app.routers.staff import router as staff_router
+from app.routers.admin_doctors import router as admin_doctors_router
 
 import app.models  # noqa: F401
 
@@ -23,8 +24,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(clinics_router)
 app.include_router(staff_router)
+app.include_router(admin_doctors_router)
+app.include_router(clinics_router)
 app.include_router(doctor_assignments_router)
 app.include_router(dashboard_router)
 

@@ -26,6 +26,23 @@ class BookedSlotResponse(BaseModel):
         from_attributes = True
 
 
+class ClinicDoctorAppointmentCount(BaseModel):
+    doctor_id: UUID | None = None
+    doctor_name: str | None = None
+    appointment_count: int
+
+
+class ClinicOperationalDashboardResponse(BaseModel):
+    total_appointments: int
+    completed_consultations: int
+    cancellations: int
+    patients_in_queue: int
+    doctor_appointment_counts: list[ClinicDoctorAppointmentCount]
+
+    class Config:
+        from_attributes = True
+
+
 # ---------------------------------------------------------------------------
 # AS-01: Doctor search response (mirrors doctor-service contract)
 # ---------------------------------------------------------------------------
