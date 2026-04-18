@@ -13,7 +13,11 @@ from pydantic import BaseModel
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
+import logging
 from app.database import get_db
+
+logger = logging.getLogger(__name__)
+
 from app.models import Appointment, AppointmentStatusHistory, Patient
 from app.schemas import (
     AppointmentOutcomeResponse,
@@ -25,6 +29,7 @@ from app.schemas import (
 )
 from app.services.outcome import mark_arrived, mark_no_show, mark_technical_failure
 from app.services.policy import resolve_effective_policy
+from app.services.admin import get_clinic_operational_dashboard
 from app.schemas import (
     InternalPostConsultationContextResponse,
     InternalPreConsultationContextRequest,
@@ -34,8 +39,14 @@ from app.services.consultation import get_post_consultation_context, get_pre_con
 
 router = APIRouter(tags=["internal"])
 
+# Statuses that are considered "pending/future" (not completed, cancelled or rejected)
+PENDING_FUTURE_STATUSES = ["scheduled", "confirmed", "pending_payment", "arrived", "in_progress"]
+
+
+
 # Statuses that occupy a slot (cancelled/completed do NOT block)
-OCCUPIED_STATUSES = {"scheduled", "confirmed", "pending_payment", "in_progress", "arrived"}
+OCCUPIED_STATUSES = ["scheduled", "confirmed", "pending_payment", "in_progress", "arrived"]
+
 
 
 @router.get("/appointments/booked-slots", response_model=List[BookedSlotResponse])
@@ -141,6 +152,62 @@ def internal_clinic_operational_dashboard(
 ) -> ClinicOperationalDashboardResponse:
     data = get_clinic_operational_dashboard(db=db, clinic_id=clinic_id, target_date=target_date)
     return ClinicOperationalDashboardResponse(**data)
+
+
+@router.get("/clinics/{clinic_id}/pending-future-appointments")
+def get_clinic_pending_future_appointments(
+    clinic_id: UUID = Path(...),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Returns the count of pending future appointments for a clinic.
+    Used by clinic-service to verify if a clinic can be removed.
+    """
+    now = datetime.now()
+    count = (
+        db.query(Appointment)
+        .filter(
+            Appointment.clinic_id == clinic_id,
+            Appointment.status.in_(PENDING_FUTURE_STATUSES),
+            (Appointment.appointment_date > now.date()) |
+            ((Appointment.appointment_date == now.date()) & (Appointment.start_time >= now.time()))
+        )
+        .count()
+    )
+    return {"pending_future_appointments": count}
+
+
+@router.get("/appointments/pending-future")
+def get_doctor_pending_future_appointments(
+    doctor_id: UUID = Query(...),
+    clinic_id: UUID = Query(...),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Returns the count of pending future appointments for a specific doctor at a clinic.
+    Used by clinic-service to verify if a doctor can be unassigned.
+    """
+    now = datetime.now()
+    logger.info(f"Checking pending future appointments for doctor {doctor_id} in clinic {clinic_id}")
+    try:
+        count = (
+            db.query(Appointment)
+            .filter(
+                Appointment.doctor_id == doctor_id,
+                Appointment.clinic_id == clinic_id,
+                Appointment.status.in_(PENDING_FUTURE_STATUSES),
+                (Appointment.appointment_date > now.date()) |
+                ((Appointment.appointment_date == now.date()) & (Appointment.start_time >= now.time()))
+            )
+            .count()
+        )
+        logger.info(f"Found {count} pending future appointments")
+        return {"pending_future_appointments": count}
+    except Exception as e:
+        logger.error(f"Error checking pending future appointments: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 @router.get("/appointments/booked-slots/batch", response_model=List[BookedSlotResponse])

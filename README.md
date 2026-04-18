@@ -1,125 +1,275 @@
-# MedStream
+# MedStream Full Deployment Guide
 
-MedStream is a microservices workspace scaffolded for FastAPI services with local Docker Compose orchestration and Kubernetes/Azure deployment placeholders.
+This document lists the steps to deploy the full MedStream website locally, including:
 
-## Services
+- All backend microservices and databases from this repository.
+- API gateway routing.
+- Frontend app from the sibling workspace folder: `../medstream-frontend`.
 
-- auth-service
-- patient-service
-- clinic-service
-- appointment-service
-- doctor-service
-- telemedicine-service
-- payment-service
-- notification-service
+## Architecture Overview
 
-Each service includes:
+### Backend Services (Docker Compose)
 
-- app/ (routers, models, schemas, database.py)
-- main.py
-- requirements.txt
-- Dockerfile
+- api-gateway (nginx): host port `8080`
+- auth-service: host port `8001`
+- patient-service: host port `8002`
+- clinic-service: host port `8003`
+- appointment-service: host port `8004`
+- payment-service: host port `8005`
+- notification-service: host port `8006`
+- doctor-service: host port `8007`
+- telemedicine-service: host port `8008`
+- ai-service: host port `8009`
 
-## Run Locally
+### Databases
 
-1. First-time setup (or reinitialize databases):
+Five PostgreSQL containers are used:
 
-	docker compose down -v
+- auth_db (`medstream_auth`) on host `5432`
+- admin_db (`medstream_admin`) on host `5433`
+- patientcare_db (`medstream_patientcare`) on host `5434`
+- finance_db (`medstream_finance`) on host `5435`
+- communication_db (`medstream_communication`) on host `5436`
 
-2. Build and start all services:
+### Frontend
 
-	docker compose up --build
+- Vite React app in sibling folder: `../medstream-frontend`
+- Default dev port: `5173`
+- Default API target in code: `http://localhost:8080`
 
-3. Access the API gateway:
+## Prerequisites
 
-	http://localhost:8080
+Install these before deployment:
 
-4. Check service health through the API gateway:
+1. Docker Desktop (with Compose v2)
+2. Node.js 20+ and npm
+3. Git
 
-	curl http://localhost:8080/auth/health
-	curl http://localhost:8080/patients/health
-	curl http://localhost:8080/clinics/health
-	curl http://localhost:8080/appointments/health
-	curl http://localhost:8080/doctors/health
-	curl http://localhost:8080/telemedicine/health
-	curl http://localhost:8080/payments/health
-	curl http://localhost:8080/notifications/health
+Validate tools:
 
-5. Optional direct service health checks (without gateway):
+```bash
+docker --version
+docker compose version
+node --version
+npm --version
+```
 
-	curl http://localhost:8001/health
-	curl http://localhost:8002/health
-	curl http://localhost:8003/health
-	curl http://localhost:8004/health
-	curl http://localhost:8007/health
-	curl http://localhost:8008/health
-	curl http://localhost:8005/health
-	curl http://localhost:8006/health
+## Step 1: Clone Repositories
 
-6. Stop everything:
+Your workspace should contain both folders side by side:
 
-	docker compose down
+```text
+GitHub/
+  MedStream/
+  medstream-frontend/
+```
 
-## Separate PostgreSQL Databases
+If not already cloned:
 
-This setup uses five separate Postgres containers (not logical databases in one server):
+```bash
+cd /Users/nethalfernando/Documents/GitHub
+git clone <backend-repo-url> MedStream
+git clone <frontend-repo-url> medstream-frontend
+```
 
-- AuthDB: medstream_auth on auth_db (host port 5432)
-- AdminDB: medstream_admin on admin_db (host port 5433)
-- PatientCareDB: medstream_patientcare on patientcare_db (host port 5434)
-- FinanceDB: medstream_finance on finance_db (host port 5435)
-- CommunicationDB: medstream_communication on communication_db (host port 5436)
+## Step 2: Configure Required Environment Variables
 
-Initialization scripts:
+From `MedStream/`, create a root `.env` file for compose-level variables:
 
-- [infrastructure/db/init-db.sql](infrastructure/db/init-db.sql) (AuthDB)
-- [infrastructure/db/init-admin-db.sql](infrastructure/db/init-admin-db.sql)
-- [infrastructure/db/init-patientcare-db.sql](infrastructure/db/init-patientcare-db.sql)
-- [infrastructure/db/init-finance-db.sql](infrastructure/db/init-finance-db.sql)
-- [infrastructure/db/init-communication-db.sql](infrastructure/db/init-communication-db.sql)
+```bash
+cd /Users/nethalfernando/Documents/GitHub/MedStream
+cat > .env << 'EOF'
+INTERNAL_API_TOKEN=change-me-in-dev
+INTERNAL_SERVICE_TOKEN=medstream-internal-token
+SECRET_KEY=your-super-secret-key-change-in-production
+JWT_SECRET=your-super-secret-key-change-in-production
 
-Service DATABASE_URL mapping in compose:
+# Optional integrations
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-flash-latest
+CHATBOT_ENABLE_LLM=true
 
-- auth-service -> auth_db / medstream_auth
-- clinic-service -> admin_db / medstream_admin
-- patient-service -> patientcare_db / medstream_patientcare
-- appointment-service -> patientcare_db / medstream_patientcare
-- doctor-service -> admin_db / medstream_admin
-- telemedicine-service -> patientcare_db / medstream_patientcare
-- payment-service -> finance_db / medstream_finance
-- notification-service -> communication_db / medstream_communication
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+CLOUDINARY_FOLDER=medstream/patient-documents
 
-Important:
+TELEMEDICINE_PROVIDER=google
+MEETING_LINK_BASE_URL=https://meet.medstream.local/s
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8080/telemedicine/auth/google/callback
+GOOGLE_OAUTH_SCOPES=https://www.googleapis.com/auth/meetings.space.created
+EOF
+```
 
-- Init scripts run only when the respective DB volume is empty.
-- Use docker compose down -v to reinitialize all five databases from scripts.
+Notes:
 
-## Health Endpoints
+- `notification-service` also loads `notification-service/app/.env` via `env_file` in compose.
+- Keep secrets out of git for non-local environments.
 
-Every service exposes the same endpoint:
+## Step 3: Start Backend + Databases + Gateway
 
-- GET /health
+From `MedStream/`:
 
-Each response returns:
+```bash
+docker compose down -v
+docker compose up --build -d
+```
 
-{
-  "status": "ok",
-  "service": "<service-name>"
-}
+Why `down -v` first:
 
-Gateway paths map to each service health route:
+- Ensures init SQL scripts run against empty DB volumes.
+- Produces a clean deployment state.
 
-- /auth/health -> auth-service
-- /patients/health -> patient-service
-- /clinics/health -> clinic-service
-- /appointments/health -> appointment-service
-- /doctors/health -> doctor-service
-- /telemedicine/health -> telemedicine-service
-- /payments/health -> payment-service
-- /notifications/health -> notification-service
+Check status:
 
-## Infrastructure and CI/CD
+```bash
+docker compose ps
+```
 
-- API Gateway config: api-gateway/nginx.conf
-- Kubernetes ingress: infrastructure/k8s/ingress-routes.yaml
-- Azure workflow placeholder: .github/workflows/azure-deploy.yml
+## Step 4: Verify Backend Deployment
+
+Gateway base URL:
+
+- `http://localhost:8080`
+
+Health checks via gateway:
+
+```bash
+curl http://localhost:8080/auth/health
+curl http://localhost:8080/patients/health
+curl http://localhost:8080/clinics/health
+curl http://localhost:8080/appointments/health
+curl http://localhost:8080/doctors/health
+curl http://localhost:8080/telemedicine/health
+curl http://localhost:8080/payments/health
+curl http://localhost:8080/notifications/health
+```
+
+Optional direct service checks:
+
+```bash
+curl http://localhost:8001/health
+curl http://localhost:8002/health
+curl http://localhost:8003/health
+curl http://localhost:8004/health
+curl http://localhost:8005/health
+curl http://localhost:8006/health
+curl http://localhost:8007/health
+curl http://localhost:8008/health
+curl http://localhost:8009/health
+```
+
+## Step 5: Deploy Frontend
+
+In a new terminal:
+
+```bash
+cd /Users/nethalfernando/Documents/GitHub/medstream-frontend
+```
+
+Create frontend env file:
+
+```bash
+cat > .env.local << 'EOF'
+VITE_API_BASE_URL=http://localhost:8080
+VITE_API_URL=http://localhost:8080
+EOF
+```
+
+Install dependencies and run:
+
+```bash
+npm install
+npm run dev -- --host
+```
+
+Open:
+
+- `http://localhost:5173`
+
+The frontend will call backend APIs through the gateway at `http://localhost:8080`.
+
+## Step 6: Production-Style Frontend Build (Optional)
+
+```bash
+cd /Users/nethalfernando/Documents/GitHub/medstream-frontend
+npm run build
+npm run preview -- --host
+```
+
+Then open the preview URL shown in terminal (typically `http://localhost:4173`).
+
+## Common Operations
+
+### View Logs
+
+```bash
+cd /Users/nethalfernando/Documents/GitHub/MedStream
+docker compose logs -f api-gateway
+docker compose logs -f auth-service
+docker compose logs -f notification-service
+```
+
+### Restart One Service
+
+```bash
+cd /Users/nethalfernando/Documents/GitHub/MedStream
+docker compose up -d --build appointment-service
+```
+
+### Stop Everything
+
+Backend:
+
+```bash
+cd /Users/nethalfernando/Documents/GitHub/MedStream
+docker compose down
+```
+
+Frontend:
+
+- Stop with `Ctrl+C` in the frontend terminal.
+
+### Full Reset (Clean Re-deploy)
+
+```bash
+cd /Users/nethalfernando/Documents/GitHub/MedStream
+docker compose down -v
+docker compose up --build -d
+```
+
+## Troubleshooting
+
+1. Port already in use:
+   - Stop conflicting process/container using the same port (`8080`, `5173`, `5432`-`5436`, `8001`-`8009`).
+
+2. Service keeps restarting:
+   - Check logs: `docker compose logs <service-name>`.
+
+3. Frontend cannot reach backend:
+   - Confirm gateway is up on `http://localhost:8080`.
+   - Confirm `.env.local` in frontend has `VITE_API_BASE_URL` or `VITE_API_URL`.
+
+4. DB schema/data issues:
+   - Recreate volumes: `docker compose down -v && docker compose up --build -d`.
+
+5. Optional integrations failing (Google, Gemini, Cloudinary):
+   - Leave env vars empty for local core flows, or provide valid credentials.
+
+## Kubernetes Placeholder
+
+Kubernetes ingress skeleton exists at:
+
+- `infrastructure/k8s/ingress-routes.yaml`
+
+This repository currently provides ingress route definitions only. Full k8s deployment manifests for every service/database are not yet defined.
+
+## Deployment Checklist
+
+1. Backend containers up (`docker compose ps`).
+2. All gateway health endpoints return `{"status":"ok", ...}`.
+3. Frontend running on `http://localhost:5173`.
+4. Frontend login/API flows succeed against `http://localhost:8080`.
+5. Notification websocket and protected routes are reachable through gateway.
