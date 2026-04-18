@@ -13,6 +13,7 @@ from app.schemas import (
     ClinicResponse,
     ClinicUpdateRequest,
     CreateClinicRequest,
+    UpdateClinicRequest,
     UpdateClinicStatusRequest,
 )
 from app.services.appointment_client import get_clinic_appointments
@@ -96,6 +97,29 @@ def get_clinic_appointments_endpoint(
             consultation_type=consultation_type,
         )
     )
+
+
+@router.patch("/{clinic_id}", response_model=ClinicResponse)
+def update_clinic_endpoint(
+    clinic_id: str,
+    payload: UpdateClinicRequest,
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_roles("clinic_admin", "admin")),
+) -> ClinicResponse:
+    if _user["role"] == "clinic_admin":
+        assigned_clinic_id = get_clinic_admin_clinic_id(db, _user["sub"])
+        if not assigned_clinic_id or str(assigned_clinic_id) != str(clinic_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Clinic admin is not permitted to update this clinic.",
+            )
+    clinic = update_clinic(
+        db=db,
+        clinic_id=clinic_id,
+        payload=payload,
+        changed_by=_user["sub"],
+    )
+    return ClinicResponse.model_validate(clinic)
 
 
 @router.patch("/{clinic_id}/status", response_model=ClinicResponse)

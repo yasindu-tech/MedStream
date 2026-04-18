@@ -138,6 +138,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_doctors_medical_registration_no
     ON admin.doctors (medical_registration_no)
     WHERE medical_registration_no IS NOT NULL;
 
+CREATE TABLE IF NOT EXISTS admin.doctor_profile_history (
+    history_id   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    doctor_id    uuid NOT NULL,
+    field_name   varchar(100) NOT NULL,
+    old_value    text,
+    new_value    text,
+    changed_by   varchar(100),
+    reason       text,
+    changed_at   timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT fk_doctor_profile_history_doctor
+        FOREIGN KEY (doctor_id) REFERENCES admin.doctors(doctor_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS admin.doctor_clinic_assignments (
     assignment_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     doctor_id     uuid NOT NULL,
@@ -166,6 +179,22 @@ CREATE TABLE IF NOT EXISTS admin.doctor_availability (
 
 -- Ensure newer scheduling columns exist on databases created before one-time date support
 ALTER TABLE admin.doctor_availability ADD COLUMN IF NOT EXISTS date date;
+ALTER TABLE admin.doctor_availability ALTER COLUMN day_of_week DROP NOT NULL;
+
+CREATE TABLE IF NOT EXISTS admin.doctor_availability_history (
+    history_id       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    availability_id  uuid NOT NULL,
+    doctor_id        uuid NOT NULL,
+    action           varchar(50) NOT NULL,
+    old_value        jsonb,
+    new_value        jsonb,
+    changed_by       varchar(100),
+    changed_at       timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT fk_doctor_availability_history_availability
+        FOREIGN KEY (availability_id) REFERENCES admin.doctor_availability(availability_id) ON DELETE CASCADE,
+    CONSTRAINT fk_doctor_availability_history_doctor
+        FOREIGN KEY (doctor_id) REFERENCES admin.doctors(doctor_id) ON DELETE CASCADE
+);
 
 CREATE TABLE IF NOT EXISTS admin.doctor_leave (
     leave_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),

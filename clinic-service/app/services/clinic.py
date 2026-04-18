@@ -19,6 +19,7 @@ from app.schemas import (
     ClinicUpdateRequest,
     CreateClinicRequest,
     CreateClinicStaffRequest,
+    UpdateClinicRequest,
     UpdateClinicStaffRequest,
 )
 from app.services.appointment_client import (
@@ -31,7 +32,10 @@ from app.services.auth_client import (
     register_clinic_admin_user,
     register_clinic_staff_user,
 )
-from app.services.notification_client import queue_clinic_admin_onboarding_email
+from app.services.notification_client import (
+    queue_clinic_admin_onboarding_email,
+    queue_clinic_staff_onboarding_email,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -177,17 +181,10 @@ def list_available_doctors_for_assignment(db: Session, clinic_id: str, specialty
     assigned_doctor_ids = _get_clinic_assigned_doctor_ids(db, clinic_id)
     query = (
         db.query(Doctor)
-        .join(
-            DoctorAvailability,
-            DoctorAvailability.doctor_id == Doctor.doctor_id,
-        )
         .filter(
             Doctor.status == "active",
             Doctor.verification_status == "verified",
-            DoctorAvailability.clinic_id == clinic_id,
-            DoctorAvailability.status == "active",
         )
-        .distinct()
         .order_by(Doctor.full_name.asc())
     )
     if specialty:
@@ -237,17 +234,9 @@ def create_clinic_doctor_assignment(db: Session, clinic_id: str, doctor_id: str,
             detail="Doctor not found, inactive, or unverified.",
         )
 
-    if not _doctor_has_active_schedule_at_clinic(db, doctor_id, clinic_id):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Doctor has no active schedule for this clinic.",
-        )
+    # We no longer require a pre-existing active schedule to assign a doctor
+    # Schedule conflicts can be managed separately when slots are specifically added
 
-    if _doctor_has_conflicting_schedule_elsewhere(db, doctor_id, clinic_id):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Doctor already has the same schedule slot at another clinic.",
-        )
 
     existing_assignment = get_clinic_doctor_assignment(db, clinic_id, doctor_id)
     if existing_assignment is not None:
@@ -355,6 +344,41 @@ def _log_doctor_assignment(
         reason=reason,
     )
     db.add(history)
+
+
+def update_clinic(
+    db: Session,
+    clinic_id: str,
+    payload: UpdateClinicRequest,
+    changed_by: str | None = None,
+) -> Clinic:
+    clinic = get_clinic_by_id(db, clinic_id)
+    if not clinic:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clinic not found.")
+
+    if payload.registration_no is not None and payload.registration_no != clinic.registration_no:
+        existing = get_clinic_by_registration(db, payload.registration_no)
+        if existing and str(existing.clinic_id) != str(clinic.clinic_id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Clinic registration number already exists.",
+            )
+
+    if payload.clinic_name is not None:
+        clinic.clinic_name = payload.clinic_name
+    if payload.registration_no is not None:
+        clinic.registration_no = payload.registration_no
+    if payload.address is not None:
+        clinic.address = payload.address
+    if payload.phone is not None:
+        clinic.phone = payload.phone
+    if getattr(payload, "email", None) is not None:
+        clinic.email = payload.email
+
+    db.add(clinic)
+    db.commit()
+    db.refresh(clinic)
+    return clinic
 
 
 def change_clinic_status(
@@ -571,10 +595,43 @@ def _log_clinic_staff_history(
 def get_clinic_admin_clinic_id(db: Session, user_id: str) -> str | None:
     admin = (
         db.query(ClinicAdmin)
-        .filter(ClinicAdmin.user_id == user_id, ClinicAdmin.status == "active")
+        .filter(
+            ClinicAdmin.user_id == user_id,
+            ClinicAdmin.status.in_(["active", "pending"]),
+        )
         .first()
     )
     return str(admin.clinic_id) if admin else None
+
+
+def get_user_clinic_assignment(db: Session, user_id: str) -> dict[str, str] | None:
+    staff = (
+        db.query(ClinicStaff)
+        .join(Clinic, Clinic.clinic_id == ClinicStaff.clinic_id)
+        .filter(
+            ClinicStaff.user_id == user_id,
+            ClinicStaff.status == "active",
+            Clinic.status == "active",
+        )
+        .first()
+    )
+    if staff:
+        return {"clinic_id": str(staff.clinic_id), "source": "clinic_staff"}
+
+    admin = (
+        db.query(ClinicAdmin)
+        .join(Clinic, Clinic.clinic_id == ClinicAdmin.clinic_id)
+        .filter(
+            ClinicAdmin.user_id == user_id,
+            ClinicAdmin.status.in_(["active", "pending"]),
+            Clinic.status == "active",
+        )
+        .first()
+    )
+    if admin:
+        return {"clinic_id": str(admin.clinic_id), "source": "clinic_admins"}
+
+    return None
 
 
 def get_clinic_staff_by_id(db: Session, clinic_id: str, staff_id: str) -> ClinicStaff | None:
@@ -634,6 +691,19 @@ def create_clinic_staff(
     _log_clinic_staff_history(db, staff, action="created", changed_by=created_by)
     db.commit()
     db.refresh(staff)
+
+    try:
+        queue_clinic_staff_onboarding_email(
+            user_id=auth_user["id"],
+            email=auth_user["email"],
+            clinic_name=clinic.clinic_name,
+            temporary_password=temp_password,
+        )
+    except HTTPException as exc:
+        logger.warning(
+            "Clinic staff created but onboarding email could not be queued: %s",
+            exc.detail,
+        )
 
     return {"staff": staff, "temporary_password": temp_password}
 

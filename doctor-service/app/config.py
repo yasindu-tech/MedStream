@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     APPOINTMENT_SERVICE_URL: str = "http://appointment-service:8000"
     NOTIFICATION_SERVICE_URL: str = "http://notification-service:8000"
     AUTH_SERVICE_URL: str = "http://auth-service:8000"
+    SECRET_KEY: str = "your-super-secret-key-change-in-production"
+    ALGORITHM: str = "HS256"
 
     class Config:
         env_file = ".env"

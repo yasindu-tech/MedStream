@@ -79,7 +79,7 @@ def suggest_followup(
         start_time=request.suggested_start_time,
         consultation_type=request.consultation_type,
     )
-    slot_info = _validate_slot_with_doctor_service(val_req)
+    slot_info = _validate_slot_with_doctor_service(val_req, is_followup=True)
     if not slot_info.get("valid"):
         reason = slot_info.get("reason", "Slot is not valid")
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=reason)
@@ -104,8 +104,36 @@ def suggest_followup(
     db.commit()
     db.refresh(suggestion)
     
-    # 5. TODO: Send notification to the patient
-    # Notification logic goes here (e.g., call notification-service)
+    # 5. Send notification to the patient
+    try:
+        booking_url = f"http://localhost:5173/appointments/follow-ups/confirm?suggestion_id={suggestion.suggestion_id}"
+        notify_payload = {
+            "event_type": "followup.suggested",
+            "user_id": str(original_appt.patient_id), # This should be user_id, let's verify
+            "payload": {
+                "appointment_id": str(original_appt.appointment_id),
+                "suggestion_id": str(suggestion.suggestion_id),
+                "doctor_name": doctor_name,
+                "clinic_name": original_appt.clinic_name,
+                "date": suggestion.suggested_date.isoformat(),
+                "time": suggestion.suggested_start_time.strftime("%H:%M"),
+                "booking_url": booking_url,
+            },
+            "channels": ["email", "in_app"]
+        }
+        
+        # We need the patient's user_id, not patient_id
+        patient = db.query(Patient).filter(Patient.patient_id == original_appt.patient_id).first()
+        if patient:
+            notify_payload["user_id"] = str(patient.user_id)
+            notify_payload["payload"]["email"] = patient.email
+            notify_payload["payload"]["patient_name"] = patient.full_name
+
+            with httpx.Client(timeout=3.0) as client:
+                client.post(f"{settings.NOTIFICATION_SERVICE_URL}/api/notifications/events", json=notify_payload)
+    except Exception as e:
+        # Don't fail the whole request if notification fails
+        print(f"Failed to send follow-up notification: {e}")
 
     return FollowUpSuggestionResponse(
         suggestion_id=suggestion.suggestion_id,
@@ -170,7 +198,7 @@ def confirm_followup(
 
     # 4. Use standard book_appointment logic
     # This will cleanly re-verify via doctor-service and detect any conflicts
-    result = book_appointment(db, patient_id=patient_user_id, request=book_req)
+    result = book_appointment(db, patient_id=patient_user_id, request=book_req, is_followup=True)
     
     # 5. Link the original appointment as parent
     appt = db.query(Appointment).filter(Appointment.appointment_id == result.appointment_id).first()

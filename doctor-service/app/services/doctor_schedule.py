@@ -149,7 +149,11 @@ def _normalize_availability_consultation_type(value: Optional[str]) -> Optional[
 
 
 def _ensure_no_pending_future_appointments(db: Session, doctor_id: UUID, clinic_id: UUID) -> None:
-    pending_count = get_pending_future_appointments(str(doctor_id), str(clinic_id))
+    pending_count = get_pending_future_appointments(
+        str(doctor_id),
+        str(clinic_id),
+        fail_open=True,
+    )
     if pending_count > 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

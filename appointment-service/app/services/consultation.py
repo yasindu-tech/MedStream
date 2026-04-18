@@ -228,6 +228,7 @@ def create_prescription(db: Session, appointment_id: UUID, doctor_user_id: str, 
         medications=[item.model_dump(exclude_none=True) for item in request.medications],
         instructions=request.instructions,
         status="draft",
+        issued_at=datetime.now(),
     )
     db.add(prescription)
     db.commit()

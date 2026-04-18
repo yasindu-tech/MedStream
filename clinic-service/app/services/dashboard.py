@@ -60,9 +60,21 @@ def build_clinic_dashboard(db: Session, clinic_id: str) -> dict:
                 "total_appointments": 0,
                 "completed_consultations": 0,
                 "cancellations": 0,
+                "patients_in_queue": 0,
+                "doctor_appointment_counts": [],
             }
         else:
             raise
+
+    doctor_specializations = {}
+    doctor_ids = [row.get("doctor_id") for row in dashboard.get("doctor_appointment_counts", []) if row.get("doctor_id")]
+    if doctor_ids:
+        doctor_rows = (
+            db.query(Doctor.doctor_id, Doctor.specialization)
+            .filter(Doctor.doctor_id.in_(doctor_ids))
+            .all()
+        )
+        doctor_specializations = {str(row.doctor_id): row.specialization for row in doctor_rows}
 
     try:
         payment_summary = get_clinic_payment_summary(clinic_id)
@@ -86,6 +98,16 @@ def build_clinic_dashboard(db: Session, clinic_id: str) -> dict:
         "total_appointments": int(dashboard.get("total_appointments", 0)),
         "completed_consultations": int(dashboard.get("completed_consultations", 0)),
         "cancellations": int(dashboard.get("cancellations", 0)),
+        "patients_in_queue": int(dashboard.get("patients_in_queue", 0)),
+        "doctor_appointment_counts": [
+            {
+                "doctor_id": row.get("doctor_id"),
+                "doctor_name": row.get("doctor_name"),
+                "specialty": doctor_specializations.get(str(row.get("doctor_id"))) if row.get("doctor_id") else None,
+                "appointment_count": int(row.get("appointment_count", 0)),
+            }
+            for row in dashboard.get("doctor_appointment_counts", [])
+        ],
         "payment_summary": payment_summary,
         "warnings": warnings,
     }

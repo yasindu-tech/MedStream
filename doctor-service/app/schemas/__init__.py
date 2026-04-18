@@ -111,6 +111,10 @@ class DoctorUpdateRequest(BaseModel):
     consultation_fee: Optional[float] = None
 
 
+class DoctorConsultationFeeUpdateRequest(BaseModel):
+    consultation_fee: float
+
+
 class DoctorVisibilityRequest(BaseModel):
     visible: bool
 

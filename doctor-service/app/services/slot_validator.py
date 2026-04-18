@@ -17,6 +17,7 @@ def validate_slot(
     target_date: date,
     start_time: str,
     consultation_type: str,
+    is_followup: bool = False,
 ) -> dict:
     """
     Validate that a specific slot is bookable.
@@ -79,9 +80,31 @@ def validate_slot(
 
     # Validate start_time format before processing availability rows
     try:
-        datetime.strptime(start_time, "%H:%M")
+        slot_start = datetime.strptime(start_time, "%H:%M")
     except (ValueError, TypeError):
         return {"valid": False, "reason": f"Invalid time format: '{start_time}'. Expected HH:MM."}
+
+    # If it's a follow-up, we are more lenient.
+    # We allow the doctor to book even if no active availability record exists for this specific day/type.
+    if is_followup:
+        # We still need a default slot duration. We'll try to find any availability for this doctor at this clinic,
+        # otherwise default to 15 mins.
+        any_avail = db.query(DoctorAvailability).filter(
+            DoctorAvailability.doctor_id == doctor_id,
+            DoctorAvailability.clinic_id == clinic_id
+        ).first()
+        duration = any_avail.slot_duration if any_avail else 15
+        slot_end = slot_start + timedelta(minutes=duration)
+        
+        fee = float(doctor.consultation_fee) if doctor.consultation_fee is not None else None
+        return {
+            "valid": True,
+            "doctor_name": doctor.full_name,
+            "clinic_name": clinic.clinic_name,
+            "consultation_fee": fee,
+            "end_time": slot_end.strftime("%H:%M"),
+            "slot_duration": duration,
+        }
 
     # 4. Find the availability row that covers this start_time and matches consultation_type
     for avail in avail_rows:

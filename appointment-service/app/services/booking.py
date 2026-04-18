@@ -25,6 +25,7 @@ def book_appointment(
     patient_id: str,
     request: BookAppointmentRequest,
     idempotency_key: Optional[str] = None,
+    is_followup: bool = False,
 ) -> BookAppointmentResponse:
     """
     1. Idempotency check (scoped to patient)
@@ -95,10 +96,9 @@ def book_appointment(
             detail=f"Appointments can only be booked up to {effective_policy.advance_booking_days} days in advance.",
         )
 
-    # ------------------------------------------------------------------
     # Step 3: Validate slot via doctor-service
     # ------------------------------------------------------------------
-    slot_info = _validate_slot_with_doctor_service(request)
+    slot_info = _validate_slot_with_doctor_service(request, is_followup=is_followup)
 
     if not slot_info.get("valid"):
         reason = slot_info.get("reason", "Slot is not valid")
@@ -306,7 +306,7 @@ def _parse_time(value: str) -> time:
         )
 
 
-def _validate_slot_with_doctor_service(request: BookAppointmentRequest) -> dict:
+def _validate_slot_with_doctor_service(request: BookAppointmentRequest, is_followup: bool = False) -> dict:
     """Call doctor-service to validate the slot is bookable."""
     url = f"{settings.DOCTOR_SERVICE_URL}/internal/doctors/{request.doctor_id}/validate-slot"
     headers = {"X-Internal-Service-Token": settings.INTERNAL_SERVICE_TOKEN}
@@ -315,6 +315,7 @@ def _validate_slot_with_doctor_service(request: BookAppointmentRequest) -> dict:
         "date": request.date.isoformat(),
         "start_time": request.start_time,
         "consultation_type": request.consultation_type,
+        "is_followup": str(is_followup).lower(),
     }
 
     try:

@@ -14,8 +14,15 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Appointment, AppointmentStatusHistory
-from app.schemas import AppointmentOutcomeResponse, BookedSlotResponse, InternalNoShowRequest, InternalTechnicalFailureRequest, MarkArrivedRequest
+from app.models import Appointment, AppointmentStatusHistory, Patient
+from app.schemas import (
+    AppointmentOutcomeResponse,
+    BookedSlotResponse,
+    ClinicOperationalDashboardResponse,
+    InternalNoShowRequest,
+    InternalTechnicalFailureRequest,
+    MarkArrivedRequest,
+)
 from app.services.outcome import mark_arrived, mark_no_show, mark_technical_failure
 from app.services.policy import resolve_effective_policy
 from app.schemas import (
@@ -63,6 +70,77 @@ def get_booked_slots(
         )
         for appt in appointments
     ]
+
+
+@router.get("/clinics/{clinic_id}/appointments")
+def internal_list_clinic_appointments(
+    clinic_id: UUID = Path(..., description="Clinic UUID"),
+    page: int = Query(1, ge=1, description="Page number"),
+    size: int = Query(20, ge=1, le=100, description="Items per page"),
+    date: date | None = Query(None, description="Filter by appointment date (YYYY-MM-DD)"),
+    status: str | None = Query(None, description="Filter by appointment status"),
+    consultation_type: str | None = Query(None, description="Filter by consultation type"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Return paginated appointments for a clinic.
+    Called by clinic-service to serve the clinic admin appointments view.
+    """
+
+    query = (
+        db.query(Appointment, Patient)
+        .join(Patient, Appointment.patient_id == Patient.patient_id)
+        .filter(Appointment.clinic_id == clinic_id)
+    )
+
+    if date:
+        query = query.filter(Appointment.appointment_date == date)
+    if status:
+        query = query.filter(Appointment.status == status)
+    if consultation_type:
+        query = query.filter(Appointment.appointment_type == consultation_type)
+
+    query = query.order_by(Appointment.appointment_date, Appointment.start_time)
+    total = query.count()
+    offset = (page - 1) * size
+    rows = query.offset(offset).limit(size).all()
+
+    items = [
+        {
+            "appointment_id": str(appt.appointment_id),
+            "doctor_id": str(appt.doctor_id) if appt.doctor_id else str(UUID(int=0)),
+            "doctor_name": appt.doctor_name,
+            "clinic_id": str(appt.clinic_id) if appt.clinic_id else str(clinic_id),
+            "clinic_name": appt.clinic_name,
+            "patient_id": str(appt.patient_id),
+            "patient_name": pat.full_name,
+            "date": appt.appointment_date.isoformat(),
+            "start_time": appt.start_time.strftime("%H:%M"),
+            "end_time": appt.end_time.strftime("%H:%M"),
+            "status": appt.status,
+            "payment_status": appt.payment_status,
+            "consultation_type": appt.appointment_type,
+        }
+        for appt, pat in rows
+    ]
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "size": size,
+        "has_more": (offset + len(items)) < total,
+    }
+
+
+@router.get("/clinics/{clinic_id}/dashboard", response_model=ClinicOperationalDashboardResponse)
+def internal_clinic_operational_dashboard(
+    clinic_id: UUID = Path(..., description="Clinic UUID"),
+    target_date: date | None = Query(None, description="Target date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+) -> ClinicOperationalDashboardResponse:
+    data = get_clinic_operational_dashboard(db=db, clinic_id=clinic_id, target_date=target_date)
+    return ClinicOperationalDashboardResponse(**data)
 
 
 @router.get("/appointments/booked-slots/batch", response_model=List[BookedSlotResponse])
