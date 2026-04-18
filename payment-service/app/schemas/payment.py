@@ -12,6 +12,9 @@ class PaymentBase(BaseModel):
     clinic_id: Optional[UUID] = None
     amount: Decimal
     currency: str = "LKR"
+    doctor_amount: Optional[Decimal] = None
+    clinic_amount: Optional[Decimal] = None
+    system_amount: Optional[Decimal] = None
 
 class PaymentCreate(PaymentBase):
     pass
@@ -79,16 +82,19 @@ class ClinicSummary(BaseModel):
     total_refunded: Decimal
     total_failed: Decimal
     clinic_share_total: Decimal
+    total_bookings: int
     period_start: Optional[datetime]
     period_end: Optional[datetime]
 
 class PlatformSummary(BaseModel):
     total_revenue: Decimal
+    platform_earnings: Decimal
+    distinct_patients: int
+    total_payments: int
     total_refunded: Decimal
     total_failed: Decimal
-    total_pending: Decimal
-    platform_commission_total: Decimal
-    payment_count: int
+    total_settled: Decimal
+    total_processing: Decimal
     refund_count: int
 
 class ReceiptResponse(BaseModel):

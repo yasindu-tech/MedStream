@@ -18,6 +18,7 @@ class Clinic(Base):
     address = Column(Text, nullable=True)
     phone = Column(String(30), nullable=True)
     email = Column(String(255), nullable=True, index=True)
+    facility_charge = Column(Numeric(10, 2), nullable=True, default=0)
     status = Column(String(30), nullable=False, default="inactive")
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 

@@ -16,6 +16,7 @@ from app.models import (
     DoctorAssignmentHistory,
 )
 from app.schemas import (
+    ClinicUpdateRequest,
     CreateClinicRequest,
     CreateClinicStaffRequest,
     UpdateClinicStaffRequest,
@@ -55,6 +56,46 @@ def get_clinic_by_id(db: Session, clinic_id: str | None) -> Clinic | None:
     if not clinic_id:
         return None
     return db.query(Clinic).filter(Clinic.clinic_id == clinic_id).first()
+
+
+def update_clinic(
+    db: Session,
+    clinic_id: str,
+    payload: ClinicUpdateRequest,
+    changed_by: str | None = None,
+) -> Clinic:
+    clinic = get_clinic_by_id(db, clinic_id)
+    if not clinic:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clinic not found.")
+
+    changes = False
+    if payload.clinic_name is not None:
+        clinic.clinic_name = payload.clinic_name
+        changes = True
+    if payload.address is not None:
+        clinic.address = payload.address
+        changes = True
+    if payload.phone is not None:
+        clinic.phone = payload.phone
+        changes = True
+    if payload.facility_charge is not None:
+        clinic.facility_charge = payload.facility_charge
+        changes = True
+    
+    if payload.status is not None and payload.status != clinic.status:
+        # If status is changing, we use change_clinic_status logic but combined here
+        old_status = clinic.status
+        clinic.status = payload.status
+        _log_clinic_status_change(db, clinic, payload.status, changed_by=changed_by, reason="Updated from admin panel")
+        changes = True
+
+    if not changes:
+        return clinic
+
+    db.add(clinic)
+    db.commit()
+    db.refresh(clinic)
+    return clinic
 
 
 def get_verified_doctor_by_id(db: Session, doctor_id: str) -> Doctor | None:

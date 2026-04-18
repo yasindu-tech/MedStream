@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     # Appointment Service (for payment status callbacks)
     APPOINTMENT_SERVICE_URL: str = "http://appointment-service:8000"
 
+    # Internal token for service-to-service calls
+    INTERNAL_SERVICE_TOKEN: str = "medstream-internal-token"
+
+    # Doctor Service (to resolve user_id to doctor_id)
+    DOCTOR_SERVICE_URL: str = "http://doctor-service:8000"
+
+    # Clinic Service (to resolve user_id to clinic_id)
+    CLINIC_SERVICE_URL: str = "http://clinic-service:8000"
+
     # Stripe Settings
     STRIPE_API_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""

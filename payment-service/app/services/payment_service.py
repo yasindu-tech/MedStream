@@ -3,6 +3,7 @@ from sqlalchemy import select, and_, or_
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 import httpx
 import logging
 
@@ -116,8 +117,9 @@ class PaymentService:
                     amount=payment.amount,
                     currency=payment.currency,
                     patient_email=patient_email,
-                    doctor_name=doctor_name,
-                    appointment_date=appointment_date
+                    doctor_amount=payment.doctor_amount,
+                    clinic_amount=payment.clinic_amount,
+                    system_amount=payment.system_amount
                 )
             
             payment.status = PaymentStatus.processing
@@ -212,35 +214,61 @@ class PaymentService:
         await db.commit()
         
         # 2. Callback to appointment-service to confirm the appointment
-        await PaymentService._notify_appointment_service(
+        appointment_sync = await PaymentService._notify_appointment_service(
             appointment_id=str(payment.appointment_id),
             payment_status="paid",
             transaction_reference=transaction_id,
         )
+
+        # Receipt should be sent only when both conditions are true:
+        # payment is completed AND appointment has transitioned to confirmed.
+        if not appointment_sync or appointment_sync.get("status") != "confirmed":
+            logger.warning(
+                "Skipping receipt notification for payment %s because appointment %s is not confirmed. Sync response=%s",
+                payment.payment_id,
+                payment.appointment_id,
+                appointment_sync,
+            )
+            return
+
+        appointment_details = await PaymentService._get_appointment_details(str(payment.appointment_id))
+        amount_float = float(payment.amount)
+        receipt_payload = {
+            "receipt_id": str(payment.payment_id),
+            "payment_id": str(payment.payment_id),
+            "appointment_id": str(payment.appointment_id),
+            "amount": amount_float,
+            "currency": payment.currency,
+            "transaction_reference": transaction_id,
+            "paid_at": payment.paid_at.isoformat() if payment.paid_at else None,
+            "status": "confirmed",
+            "doctor_name": appointment_details.get("doctor_name"),
+            "clinic_name": appointment_details.get("clinic_name"),
+            "date": appointment_details.get("appointment_date"),
+            "time": appointment_details.get("start_time"),
+        }
         
         # 3. Notify patient (Fire and forget)
         await send_notification(
             event_type=NotificationEvents.PAYMENT_CONFIRMED,
             user_id=str(payment.patient_id),
-            payload={
-                "patient_name": "Valued Patient",
-                "amount": float(payment.amount),
-                "currency": payment.currency,
-                "transaction_reference": transaction_id,
-                "appointment_id": str(payment.appointment_id)
-            },
-            channels=["email", "in_app"],
+            payload=receipt_payload,
+            channels=["email", "sms", "in_app"],
         )
-        
+
         # Notify appointment booked (final confirmation)
         await send_notification(
             event_type=NotificationEvents.APPOINTMENT_BOOKED,
             user_id=str(payment.patient_id),
             payload={
                 "appointment_id": str(payment.appointment_id),
-                "status": "confirmed"
+                "status": "confirmed",
+                "doctor_name": appointment_details.get("doctor_name"),
+                "clinic_name": appointment_details.get("clinic_name"),
+                "date": appointment_details.get("appointment_date"),
+                "time": appointment_details.get("start_time"),
             },
-            channels=["email", "in_app"],
+            channels=["email", "sms", "in_app"],
         )
 
     @staticmethod
@@ -280,7 +308,7 @@ class PaymentService:
         appointment_id: str,
         payment_status: str,
         transaction_reference: str | None,
-    ):
+    ) -> dict | None:
         """Fire-and-forget callback to appointment-service to sync payment status."""
         url = f"{settings.APPOINTMENT_SERVICE_URL}/internal/appointments/{appointment_id}/payment-status"
         body = {
@@ -291,6 +319,24 @@ class PaymentService:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.patch(url, json=body)
                 resp.raise_for_status()
+                payload = resp.json()
                 logger.info(f"Appointment {appointment_id} payment status updated to {payment_status}")
+                return payload
         except Exception as exc:
             logger.error(f"Failed to notify appointment-service for {appointment_id}: {exc}")
+            return None
+
+    @staticmethod
+    async def _get_appointment_details(appointment_id: str) -> dict:
+        """Fetch appointment details to enrich receipt/booking notifications."""
+        url = f"{settings.APPOINTMENT_SERVICE_URL}/internal/appointments/{appointment_id}"
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                payload = resp.json()
+                if isinstance(payload, dict):
+                    return payload
+        except Exception as exc:
+            logger.warning("Could not fetch appointment details for %s: %s", appointment_id, exc)
+        return {}

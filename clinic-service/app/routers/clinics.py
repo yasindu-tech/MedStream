@@ -11,6 +11,7 @@ from app.schemas import (
     ClinicActionResponse,
     ClinicAppointmentListPaginatedResponse,
     ClinicResponse,
+    ClinicUpdateRequest,
     CreateClinicRequest,
     UpdateClinicStatusRequest,
 )
@@ -22,6 +23,7 @@ from app.services.clinic import (
     get_clinic_by_id,
     list_clinics,
     remove_clinic,
+    update_clinic,
 )
 
 router = APIRouter(tags=["Clinics"])
@@ -43,6 +45,22 @@ def get_clinics_endpoint(
     db: Session = Depends(get_db),
 ) -> Sequence[ClinicResponse]:
     return [ClinicResponse.model_validate(clinic) for clinic in list_clinics(db=db, active_only=active_only)]
+
+
+@router.patch("/{clinic_id}", response_model=ClinicResponse)
+def update_clinic_endpoint(
+    clinic_id: str,
+    payload: ClinicUpdateRequest,
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_roles("admin")),
+) -> ClinicResponse:
+    clinic = update_clinic(
+        db=db,
+        clinic_id=clinic_id,
+        payload=payload,
+        changed_by=_user["sub"],
+    )
+    return ClinicResponse.model_validate(clinic)
 
 
 @router.get("/{clinic_id}/appointments", response_model=ClinicAppointmentListPaginatedResponse)

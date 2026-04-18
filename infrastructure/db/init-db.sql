@@ -85,7 +85,7 @@ ON CONFLICT (role_name) DO NOTHING;
 INSERT INTO auth.users (email, password_hash, is_verified, account_status)
 VALUES (
     'admin@medstream.lk',
-    '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2',
+    '$2b$12$UYjCKV1OyD.dFWjyLD2xcOavNGgtXlvQLZf7LD.P6ouygJrVnLGXO',
     TRUE,
     'ACTIVE'
 ) ON CONFLICT (email) DO NOTHING;
@@ -97,13 +97,13 @@ VALUES (
 
 INSERT INTO auth.users (user_id, email, password_hash, is_verified, account_status)
 VALUES
-    ('11111111-1111-4111-8111-111111111111', 'seed.admin@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE'),
-    ('22222222-2222-4222-8222-222222222222', 'dr.anura@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE'),
-    ('33333333-3333-4333-8333-333333333333', 'dr.nadee@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE'),
-    ('44444444-4444-4444-8444-444444444444', 'kamal.perera@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE'),
-    ('55555555-5555-4555-8555-555555555555', 'nimali.silva@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE'),
-    ('66666666-6666-4666-8666-666666666666', 'clinic.admin@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE'),
-    ('77777777-7777-4777-8777-777777777777', 'clinic.staff@medstream.lk', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36ZKPPuBPpqA6E2dVCPf2K2', TRUE, 'ACTIVE')
+    ('11111111-1111-4111-8111-111111111111', 'seed.admin@medstream.lk', '$2b$12$UYjCKV1OyD.dFWjyLD2xcOavNGgtXlvQLZf7LD.P6ouygJrVnLGXO', TRUE, 'ACTIVE'),
+    ('22222222-2222-4222-8222-222222222222', 'dr.anura@medstream.lk', '$2b$12$UYjCKV1OyD.dFWjyLD2xcOavNGgtXlvQLZf7LD.P6ouygJrVnLGXO', TRUE, 'ACTIVE'),
+    ('33333333-3333-4333-8333-333333333333', 'dr.nadee@medstream.lk', '$2b$12$UYjCKV1OyD.dFWjyLD2xcOavNGgtXlvQLZf7LD.P6ouygJrVnLGXO', TRUE, 'ACTIVE'),
+    ('44444444-4444-4444-8444-444444444444', 'kamal.perera@medstream.lk', '$2b$12$UYjCKV1OyD.dFWjyLD2xcOavNGgtXlvQLZf7LD.P6ouygJrVnLGXO', TRUE, 'ACTIVE'),
+    ('55555555-5555-4555-8555-555555555555', 'nimali.silva@medstream.lk', '$2b$12$UYjCKV1OyD.dFWjyLD2xcOavNGgtXlvQLZf7LD.P6ouygJrVnLGXO', TRUE, 'ACTIVE'),
+    ('66666666-6666-4666-8666-666666666666', 'clinic.admin@medstream.lk', '$2b$12$UYjCKV1OyD.dFWjyLD2xcOavNGgtXlvQLZf7LD.P6ouygJrVnLGXO', TRUE, 'ACTIVE'),
+    ('77777777-7777-4777-8777-777777777777', 'clinic.staff@medstream.lk', '$2b$12$UYjCKV1OyD.dFWjyLD2xcOavNGgtXlvQLZf7LD.P6ouygJrVnLGXO', TRUE, 'ACTIVE')
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO auth.user_roles (user_id, role_id)

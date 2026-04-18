@@ -15,28 +15,71 @@ class StripeClient:
         patient_email: str,
         doctor_name: str = "Doctor",
         appointment_date: str = "",
+        doctor_amount: Optional[Decimal] = None,
+        clinic_amount: Optional[Decimal] = None,
+        system_amount: Optional[Decimal] = None,
     ) -> Optional[dict]:
         """
-        Creates a Stripe Checkout Session for the payment.
+        Creates a Stripe Checkout Session for the payment with breakdown.
         """
-        product_name = f"Consultation with {doctor_name}"
-        if appointment_date:
-            product_name += f" on {appointment_date}"
+        line_items = []
+        
+        if doctor_amount is not None and clinic_amount is not None and system_amount is not None:
+            # Add breakdown line items
+            line_items.append({
+                'price_data': {
+                    'currency': currency.lower(),
+                    'product_data': {
+                        'name': f'Professional Fee - {doctor_name}',
+                        'description': 'Consultation fee',
+                    },
+                    'unit_amount': int(doctor_amount * 100),
+                },
+                'quantity': 1,
+            })
+            line_items.append({
+                'price_data': {
+                    'currency': currency.lower(),
+                    'product_data': {
+                        'name': 'Clinic Facility Charge',
+                        'description': 'Administrative and facility costs',
+                    },
+                    'unit_amount': int(clinic_amount * 100),
+                },
+                'quantity': 1,
+            })
+            line_items.append({
+                'price_data': {
+                    'currency': currency.lower(),
+                    'product_data': {
+                        'name': 'MedStream Service Fee',
+                        'description': 'Platform service charge (10%)',
+                    },
+                    'unit_amount': int(system_amount * 100),
+                },
+                'quantity': 1,
+            })
+        else:
+            # Fallback to single line item
+            product_name = f"Consultation with {doctor_name}"
+            if appointment_date:
+                product_name += f" on {appointment_date}"
+            line_items.append({
+                'price_data': {
+                    'currency': currency.lower(),
+                    'product_data': {
+                        'name': product_name,
+                        'description': f'Appointment ID: {appointment_id}',
+                    },
+                    'unit_amount': int(amount * 100),
+                },
+                'quantity': 1,
+            })
 
         try:
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
-                line_items=[{
-                    'price_data': {
-                        'currency': currency.lower(),
-                        'product_data': {
-                            'name': product_name,
-                            'description': f'Appointment ID: {appointment_id}',
-                        },
-                        'unit_amount': int(amount * 100), # Amount in cents
-                    },
-                    'quantity': 1,
-                }],
+                line_items=line_items,
                 mode='payment',
                 success_url=settings.STRIPE_SUCCESS_URL,
                 cancel_url=settings.STRIPE_CANCEL_URL,
@@ -50,7 +93,6 @@ class StripeClient:
                 "url": session.url
             }
         except Exception as e:
-            # Re-raise for the service to handle
             raise e
 
     @staticmethod

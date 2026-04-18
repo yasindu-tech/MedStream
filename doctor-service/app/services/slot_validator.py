@@ -105,11 +105,13 @@ def validate_slot(
 
         # Valid slot found
         fee = float(doctor.consultation_fee) if doctor.consultation_fee is not None else None
+        clinic_fee = float(clinic.facility_charge) if clinic.facility_charge is not None else 0.0
         return {
             "valid": True,
             "doctor_name": doctor.full_name,
             "clinic_name": clinic.clinic_name,
             "consultation_fee": fee,
+            "clinic_facility_charge": clinic_fee,
             "end_time": slot_end.strftime("%H:%M"),
             "slot_duration": avail.slot_duration,
         }

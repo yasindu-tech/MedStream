@@ -43,6 +43,7 @@ class DoctorSearchResult(BaseModel):
     clinic_id: UUID
     clinic_name: str
     consultation_fee: Optional[str] = None
+    clinic_facility_charge: Optional[float] = 0.0
     available_slots: List[SlotItem]
     has_slots: bool
 
@@ -63,6 +64,7 @@ class ClinicDetail(BaseModel):
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    facility_charge: Optional[float] = 0.0
 
 
 class AvailabilityWindow(BaseModel):
@@ -121,6 +123,10 @@ class BookAppointmentResponse(BaseModel):
     status: str             # "pending_doctor", "pending_payment", or "confirmed"
     payment_status: str     # "pending" or "not_required"
     consultation_fee: Optional[float] = None
+    doctor_fee: Optional[float] = None
+    clinic_charge: Optional[float] = None
+    system_fee: Optional[float] = None
+    total_amount: Optional[float] = None
     payment_id: Optional[UUID] = None
     message: str
 

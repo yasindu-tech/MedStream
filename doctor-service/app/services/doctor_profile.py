@@ -233,6 +233,7 @@ def get_doctor_profile(
             address=clinic.address,
             phone=clinic.phone,
             email=clinic.email,
+            facility_charge=float(clinic.facility_charge) if clinic.facility_charge is not None else 0.0,
         )
 
         profile_clinics.append(
