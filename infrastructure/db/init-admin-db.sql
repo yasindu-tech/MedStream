@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS admin.clinics (
     address          text,
     phone            varchar(30),
     email            varchar(255),
+    facility_charge  numeric(10,2) DEFAULT 0,
     status           varchar(30) NOT NULL DEFAULT 'active',
     created_at       timestamptz NOT NULL DEFAULT now()
 );
@@ -230,11 +231,11 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA admin GRANT ALL ON TABLES TO dev_user;
 -- Seed Data
 -- ============================================================
 
-INSERT INTO admin.clinics (clinic_id, clinic_name, registration_no, address, phone, email, status)
+INSERT INTO admin.clinics (clinic_id, clinic_name, registration_no, address, phone, email, facility_charge, status)
 VALUES
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Colombo Heart Centre',    'REG-CHC-001', '45 Galle Road, Colombo 03',   '+94112345678', 'info@chc.lk',     'active'),
-    ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Kandy Medical Institute', 'REG-KMI-002', '12 Peradeniya Road, Kandy',    '+94812345678', 'info@kmi.lk',     'active'),
-    ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'Sunrise Tele Clinic',     'REG-STC-003', '78 Online Avenue, Colombo 07', '+94112340000', 'info@sunrise.lk', 'active')
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Colombo Heart Centre',    'REG-CHC-001', '45 Galle Road, Colombo 03',   '+94112345678', 'info@chc.lk',     1000.00, 'active'),
+    ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Kandy Medical Institute', 'REG-KMI-002', '12 Peradeniya Road, Kandy',    '+94812345678', 'info@kmi.lk',     800.00,  'active'),
+    ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'Sunrise Tele Clinic',     'REG-STC-003', '78 Online Avenue, Colombo 07', '+94112340000', 'info@sunrise.lk', 500.00,  'active')
 ON CONFLICT (clinic_id) DO NOTHING;
 
 -- Doctors linked to auth seed users (22222222-... = dr.anura, 33333333-... = dr.nadee)
@@ -334,6 +335,17 @@ ON CONFLICT DO NOTHING;
 UPDATE admin.doctors
 SET consultation_mode = 'telemedicine'
 WHERE doctor_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
+INSERT INTO admin.clinic_payment_accounts (clinic_id, provider_name, account_reference, verification_status)
+VALUES 
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'stripe', 'acct_1OuXXXXX', 'verified')
+ON CONFLICT DO NOTHING;
+
+-- Map the dummy clinic_admin to the dummy clinic
+INSERT INTO admin.clinic_admins (clinic_id, user_id, status)
+VALUES 
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '66666666-6666-4666-8666-666666666666', 'active')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO admin.clinic_payment_accounts (clinic_id, provider_name, account_reference, verification_status)
 VALUES

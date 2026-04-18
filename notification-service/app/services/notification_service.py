@@ -307,6 +307,12 @@ async def seed_default_templates():
     """
     templates = [
         {
+            "event_type": "appointment.requested",
+            "channel": "email",
+            "subject": "Appointment Requested",
+            "body": "Hello {patient_name}, your appointment request with {doctor_name} for {date} at {time} has been received and is pending payment."
+        },
+        {
             "event_type": "appointment.booked",
             "channel": "email",
             "subject": "Appointment Confirmed",
@@ -447,8 +453,8 @@ async def seed_default_templates():
         {
             "event_type": "payment.confirmed",
             "channel": "email",
-            "subject": "Payment Received",
-            "body": "Hello, your payment of {amount} {currency} for appointment {appointment_id} was successful. Transaction: {transaction_reference}"
+            "subject": "Payment Receipt",
+            "body": "Your payment of {amount} {currency} for appointment {appointment_id} is complete and your booking is confirmed. Receipt ID: {receipt_id}. Transaction: {transaction_reference}"
         },
         {
             "event_type": "payment.failed",

@@ -11,6 +11,7 @@ from app.schemas import (
     ClinicActionResponse,
     ClinicAppointmentListPaginatedResponse,
     ClinicResponse,
+    ClinicUpdateRequest,
     CreateClinicRequest,
     UpdateClinicRequest,
     UpdateClinicStatusRequest,
@@ -47,22 +48,19 @@ def get_clinics_endpoint(
     return [ClinicResponse.model_validate(clinic) for clinic in list_clinics(db=db, active_only=active_only)]
 
 
-@router.get("/{clinic_id}", response_model=ClinicResponse)
-def get_clinic_endpoint(
-    clinic_id: UUID,
+@router.patch("/{clinic_id}", response_model=ClinicResponse)
+def update_clinic_endpoint(
+    clinic_id: str,
+    payload: ClinicUpdateRequest,
     db: Session = Depends(get_db),
-    _user: dict = Depends(require_roles("clinic_admin", "admin")),
+    _user: dict = Depends(require_roles("admin")),
 ) -> ClinicResponse:
-    clinic = get_clinic_by_id(db, str(clinic_id))
-    if not clinic:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clinic not found.")
-    if _user["role"] == "clinic_admin":
-        assigned_clinic_id = get_clinic_admin_clinic_id(db, _user["sub"])
-        if not assigned_clinic_id or str(assigned_clinic_id) != str(clinic_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Clinic admin is not permitted to view this clinic.",
-            )
+    clinic = update_clinic(
+        db=db,
+        clinic_id=clinic_id,
+        payload=payload,
+        changed_by=_user["sub"],
+    )
     return ClinicResponse.model_validate(clinic)
 
 

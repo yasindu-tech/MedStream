@@ -20,47 +20,48 @@ class SplitService:
     async def create_splits(db: AsyncSession, payment: Payment):
         """
         Creates the platform, clinic, and doctor splits for a successful payment.
+        Prioritizes stored breakdown amounts if available.
         """
         logger.info(f"Calculating splits for payment {payment.payment_id}")
         
         # 1. Platform Split
-        platform_amount = SplitService._calculate_amount(
-            payment.amount, settings.PLATFORM_COMMISSION_PCT
-        )
+        platform_amount = Decimal(str(payment.system_amount)) if payment.system_amount is not None else \
+            SplitService._calculate_amount(payment.amount, settings.PLATFORM_COMMISSION_PCT)
+            
         db.add(PaymentSplit(
             payment_id=payment.payment_id,
             split_type=SplitType.platform,
             beneficiary_id=PLATFORM_BENEFICIARY_ID,
-            percentage=settings.PLATFORM_COMMISSION_PCT,
+            percentage=settings.PLATFORM_COMMISSION_PCT if payment.system_amount is None else (payment.system_amount / payment.amount * 100),
             amount=platform_amount,
-            status=SplitStatus.pending
+            status=SplitStatus.settled
         ))
 
         # 2. Clinic Split
         if payment.clinic_id:
-            clinic_amount = SplitService._calculate_amount(
-                payment.amount, settings.CLINIC_SHARE_PCT
-            )
+            clinic_amount = Decimal(str(payment.clinic_amount)) if payment.clinic_amount is not None else \
+                SplitService._calculate_amount(payment.amount, settings.CLINIC_SHARE_PCT)
+                
             db.add(PaymentSplit(
                 payment_id=payment.payment_id,
                 split_type=SplitType.clinic,
                 beneficiary_id=payment.clinic_id,
-                percentage=settings.CLINIC_SHARE_PCT,
+                percentage=settings.CLINIC_SHARE_PCT if payment.clinic_amount is None else (payment.clinic_amount / payment.amount * 100),
                 amount=clinic_amount,
-                status=SplitStatus.pending
+                status=SplitStatus.settled
             ))
 
         # 3. Doctor Split
-        doctor_amount = SplitService._calculate_amount(
-            payment.amount, settings.DOCTOR_SHARE_PCT
-        )
+        doctor_amount = Decimal(str(payment.doctor_amount)) if payment.doctor_amount is not None else \
+            SplitService._calculate_amount(payment.amount, settings.DOCTOR_SHARE_PCT)
+            
         db.add(PaymentSplit(
             payment_id=payment.payment_id,
             split_type=SplitType.doctor,
             beneficiary_id=payment.doctor_id,
-            percentage=settings.DOCTOR_SHARE_PCT,
+            percentage=settings.DOCTOR_SHARE_PCT if payment.doctor_amount is None else (payment.doctor_amount / payment.amount * 100),
             amount=doctor_amount,
-            status=SplitStatus.pending
+            status=SplitStatus.settled
         ))
 
         await db.flush()

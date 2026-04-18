@@ -107,10 +107,21 @@ def book_appointment(
     end_time_str: str = slot_info["end_time"]
     doctor_name: str = slot_info["doctor_name"]
     clinic_name: str = slot_info["clinic_name"]
-    consultation_fee: Optional[float] = slot_info.get("consultation_fee")
+    doctor_fee: Optional[float] = slot_info.get("consultation_fee")
+    clinic_charge: Optional[float] = slot_info.get("clinic_facility_charge", 0.0)
 
     # ------------------------------------------------------------------
-    # Step 4: Double-book collision check (time-range overlap)
+    # Step 4: Calculate fee breakdown
+    # ------------------------------------------------------------------
+    system_fee = 0.0
+    total_amount = 0.0
+    
+    if doctor_fee and doctor_fee > 0:
+        system_fee = (doctor_fee + clinic_charge) * 0.10
+        total_amount = doctor_fee + clinic_charge + system_fee
+
+    # ------------------------------------------------------------------
+    # Step 5: Double-book collision check (time-range overlap)
     # ------------------------------------------------------------------
     start_time_obj = _parse_time(request.start_time)
     end_time_obj = _parse_time(end_time_str)
@@ -135,7 +146,7 @@ def book_appointment(
         )
 
     # ------------------------------------------------------------------
-    # Step 5: Ensure patient record exists (auto-create on first booking)
+    # Step 6: Ensure patient record exists (auto-create on first booking)
     # ------------------------------------------------------------------
     if not existing_patient:
         existing_patient = Patient(
@@ -146,12 +157,12 @@ def book_appointment(
         db.flush()  # get patient_id without committing
 
     # ------------------------------------------------------------------
-    # Step 6: Create appointment request
+    # Step 7: Create appointment request
     # ------------------------------------------------------------------
-    if consultation_fee and consultation_fee > 0:
+    if total_amount > 0:
         appt_status = "pending_doctor"
         payment_status = "pending"
-        message = f"Appointment request submitted. Awaiting doctor approval and payment of Rs {consultation_fee:.2f}."
+        message = f"Appointment request submitted. Awaiting doctor approval and payment of Rs {total_amount:.2f}."
     else:
         appt_status = "pending_doctor"
         payment_status = "not_required"
@@ -202,25 +213,27 @@ def book_appointment(
     )
 
     # ------------------------------------------------------------------
-    # Step 7: Payment service integration
-    # When payment is required (consultation_fee > 0):
+    # Step 8: Payment service integration
+    # When payment is required (total_amount > 0):
     #   - Call POST http://payment-service:8000/api/payments/
-    #     with appointment_id, patient_id, doctor_id, clinic_id, amount
-    #   - Store returned payment_id for frontend redirect
+    #     with breakdown details
     # ------------------------------------------------------------------
     payment_id = None
-    if consultation_fee and consultation_fee > 0:
+    if total_amount > 0:
         try:
             with httpx.Client(timeout=10.0) as client:
                 pay_resp = client.post(
-                    f"{settings.PAYMENT_SERVICE_URL}/api/payments/",
+                    f"{settings.PAYMENT_SERVICE_URL}/",
                     json={
                         "appointment_id": str(appointment.appointment_id),
                         "patient_id": patient_id,
                         "doctor_id": str(request.doctor_id),
                         "clinic_id": str(request.clinic_id),
-                        "amount": float(consultation_fee),
+                        "amount": float(total_amount),
                         "currency": "LKR",
+                        "doctor_amount": float(doctor_fee),
+                        "clinic_amount": float(clinic_charge),
+                        "system_amount": float(system_fee)
                     },
                     headers={"Authorization": "Bearer internal-service-call"},
                 )
@@ -242,7 +255,11 @@ def book_appointment(
         consultation_type=appointment.appointment_type,
         status=appointment.status,
         payment_status=appointment.payment_status,
-        consultation_fee=consultation_fee,
+        consultation_fee=doctor_fee,
+        doctor_fee=doctor_fee,
+        clinic_charge=clinic_charge,
+        system_fee=system_fee,
+        total_amount=total_amount,
         payment_id=payment_id,
         message=message,
     )
@@ -256,7 +273,7 @@ def _emit_booking_notification_event(
     patient_phone: Optional[str],
 ) -> None:
     payload = {
-        "event_type": "appointment.booked",
+        "event_type": "appointment.requested",
         "user_id": patient_user_id,
         "payload": {
             "appointment_id": str(appointment.appointment_id),

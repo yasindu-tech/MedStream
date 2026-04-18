@@ -4,13 +4,14 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from uuid import UUID
+from datetime import datetime
 import logging
 import stripe
 
 from app.database import get_db
 from app.models.payment import Payment, PaymentStatus, PaymentSplit, Refund
 from app.schemas.payment import (
-    PaymentCreate, PaymentResponse, PaymentInitiateResponse, MockPayRequest
+    PaymentCreate, PaymentResponse, PaymentInitiateResponse, MockPayRequest, ReceiptResponse
 )
 from app.services.payment_service import PaymentService
 from app.services.stripe_client import StripeClient
@@ -255,7 +256,7 @@ async def mock_payment_confirm(
         await PaymentService.confirm_payment(db, payment, transaction_id)
         return {"status": "confirmed", "transaction_id": transaction_id}
 
-@router.get("/{payment_id}/receipt")
+@router.get("/{payment_id}/receipt", response_model=ReceiptResponse)
 async def get_receipt(
     payment_id: UUID,
     db: AsyncSession = Depends(get_db),

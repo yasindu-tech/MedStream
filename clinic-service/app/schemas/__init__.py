@@ -31,6 +31,7 @@ class ClinicResponse(BaseModel):
     address: str | None
     phone: str | None
     email: EmailStr | None
+    facility_charge: Decimal | None = 0
     status: str
     created_at: datetime
 
@@ -41,6 +42,14 @@ class ClinicResponse(BaseModel):
 class UpdateClinicStatusRequest(BaseModel):
     status: Literal["active", "inactive"]
     reason: str | None = Field(None, description="Optional reason for the status change")
+
+
+class ClinicUpdateRequest(BaseModel):
+    clinic_name: str | None = None
+    address: str | None = None
+    phone: str | None = None
+    facility_charge: Decimal | None = None
+    status: str | None = None
 
 
 class ClinicActionResponse(BaseModel):

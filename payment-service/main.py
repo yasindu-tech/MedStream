@@ -51,12 +51,12 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Router Mounting (P1.7)
-app.include_router(payments_router,  prefix="/api/payments", tags=["payments"])
-app.include_router(refunds_router,   prefix="/api/payments", tags=["refunds"])
-app.include_router(summaries_router, prefix="/api/payments", tags=["summaries"])
-app.include_router(internal_router, prefix="/internal")
-
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": settings.SERVICE_NAME}
+
+# Router Mounting (P1.7)
+app.include_router(payments_router,  tags=["payments"])
+app.include_router(refunds_router,   tags=["refunds"])
+app.include_router(summaries_router, tags=["summaries"])
+app.include_router(internal_router, prefix="/internal")

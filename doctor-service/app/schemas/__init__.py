@@ -22,6 +22,7 @@ class DoctorSearchResult(BaseModel):
     clinic_id: UUID
     clinic_name: str
     consultation_fee: Optional[str] = None
+    clinic_facility_charge: Optional[float] = None
     available_slots: List[SlotItem]
     has_slots: bool
 
@@ -45,6 +46,7 @@ class ClinicDetail(BaseModel):
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    facility_charge: Optional[float] = None
 
 
 class AvailabilityWindow(BaseModel):
@@ -279,6 +281,7 @@ class SlotValidationResponse(BaseModel):
     doctor_name: Optional[str] = None
     clinic_name: Optional[str] = None
     consultation_fee: Optional[float] = None
+    clinic_facility_charge: Optional[float] = None
     end_time: Optional[str] = None
     slot_duration: Optional[int] = None
 
@@ -290,3 +293,12 @@ class SlotValidationResponse(BaseModel):
 class DoctorIdResponse(BaseModel):
     doctor_id: UUID
     full_name: str
+
+
+class ClinicUpdateRequest(BaseModel):
+    clinic_name: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    facility_charge: Optional[float] = None
+
