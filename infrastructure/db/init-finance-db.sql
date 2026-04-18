@@ -17,42 +17,31 @@ GRANT CONNECT ON DATABASE medstream_finance TO dev_user;
 CREATE SCHEMA IF NOT EXISTS finance;
 GRANT ALL ON SCHEMA finance TO dev_user;
 
--- Set Search Path
 SET search_path TO finance, public;
 
 -- ENUM Types
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'payment_status' AND n.nspname = 'finance') THEN
-        CREATE TYPE finance.payment_status AS ENUM ('pending', 'processing', 'paid', 'failed', 'refunded', 'expired');
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'split_type' AND n.nspname = 'finance') THEN
-        CREATE TYPE finance.split_type AS ENUM ('platform', 'clinic', 'doctor');
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'split_status' AND n.nspname = 'finance') THEN
-        CREATE TYPE finance.split_status AS ENUM ('pending', 'settled', 'reversed');
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'refund_status' AND n.nspname = 'finance') THEN
-        CREATE TYPE finance.refund_status AS ENUM ('pending', 'approved', 'rejected', 'processed', 'failed');
-    END IF;
-END
-$$;
+CREATE TYPE finance.payment_status AS ENUM ('pending', 'processing', 'paid', 'failed', 'refunded', 'expired');
+CREATE TYPE finance.split_type AS ENUM ('platform', 'clinic', 'doctor');
+CREATE TYPE finance.split_status AS ENUM ('pending', 'settled', 'reversed');
+CREATE TYPE finance.refund_status AS ENUM ('pending', 'approved', 'rejected', 'processed', 'failed');
 
--- Grant usage on types to dev_user
 GRANT USAGE ON TYPE finance.payment_status TO dev_user;
 GRANT USAGE ON TYPE finance.split_type TO dev_user;
 GRANT USAGE ON TYPE finance.split_status TO dev_user;
 GRANT USAGE ON TYPE finance.refund_status TO dev_user;
 
 -- PAYMENTS Table
-CREATE TABLE IF NOT EXISTS finance.payments (
+CREATE TABLE finance.payments (
     payment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     appointment_id UUID NOT NULL UNIQUE,
     patient_id UUID NOT NULL,
     doctor_id UUID NOT NULL,
     clinic_id UUID,
     amount NUMERIC(10, 2) NOT NULL,
-    currency VARCHAR(3) DEFAULT 'USD',
+    currency VARCHAR(3) DEFAULT 'LKR',
+    doctor_amount NUMERIC(10, 2),
+    clinic_amount NUMERIC(10, 2),
+    system_amount NUMERIC(10, 2),
     provider_name VARCHAR(50) DEFAULT 'stripe',
     transaction_reference VARCHAR(255),
     status finance.payment_status DEFAULT 'pending',
@@ -66,7 +55,7 @@ CREATE TABLE IF NOT EXISTS finance.payments (
 );
 
 -- PAYMENT_SPLITS Table
-CREATE TABLE IF NOT EXISTS finance.payment_splits (
+CREATE TABLE finance.payment_splits (
     split_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     payment_id UUID NOT NULL REFERENCES finance.payments(payment_id) ON DELETE CASCADE,
     split_type finance.split_type NOT NULL,
@@ -78,7 +67,7 @@ CREATE TABLE IF NOT EXISTS finance.payment_splits (
 );
 
 -- REFUNDS Table
-CREATE TABLE IF NOT EXISTS finance.refunds (
+CREATE TABLE finance.refunds (
     refund_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     payment_id UUID NOT NULL REFERENCES finance.payments(payment_id) ON DELETE CASCADE,
     refund_amount NUMERIC(10, 2) NOT NULL,
