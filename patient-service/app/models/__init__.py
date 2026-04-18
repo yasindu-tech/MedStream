@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import date, datetime
-from sqlalchemy import JSON, Column, Date, DateTime, String, Text
+from sqlalchemy import JSON, Boolean, Column, Date, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 
@@ -93,7 +93,7 @@ class Prescription(Base):
     issued_at = Column(DateTime(timezone=True), nullable=True)
     finalized_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class MedicalDocument(Base):
@@ -107,3 +107,25 @@ class MedicalDocument(Base):
     file_url = Column(Text, nullable=False)
     visibility = Column(String(30), nullable=False, default="public")
     uploaded_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class ConsultationSummary(Base):
+    __tablename__ = "consultation_summaries"
+    __table_args__ = {"schema": "patientcare"}
+
+    summary_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    appointment_id = Column(UUID(as_uuid=True), nullable=False, unique=True, index=True)
+    patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    status = Column(String(30), nullable=False, default="generated")
+    llm_used = Column(Boolean, nullable=False, default=False)
+    doctor_name = Column(String(255), nullable=True)
+    diagnosis = Column(Text, nullable=True)
+    medications = Column(JSON, nullable=False, default=list)
+    sections = Column(JSON, nullable=False, default=list)
+    summary_text = Column(Text, nullable=False)
+    summary_html = Column(Text, nullable=False)
+    missing_fields = Column(JSON, nullable=False, default=list)
+    warnings = Column(JSON, nullable=False, default=list)
+    generated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)

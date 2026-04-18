@@ -231,6 +231,27 @@ CREATE TABLE IF NOT EXISTS patientcare.appointment_notes (
     CONSTRAINT fk_appointment_notes_appointment FOREIGN KEY (appointment_id) REFERENCES patientcare.appointments(appointment_id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS patientcare.consultation_summaries (
+    summary_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    appointment_id uuid NOT NULL UNIQUE,
+    patient_id uuid NOT NULL,
+    status varchar(30) NOT NULL DEFAULT 'generated',
+    llm_used boolean NOT NULL DEFAULT false,
+    doctor_name varchar(255),
+    diagnosis text,
+    medications jsonb NOT NULL DEFAULT '[]',
+    sections jsonb NOT NULL DEFAULT '[]',
+    summary_text text NOT NULL,
+    summary_html text NOT NULL,
+    missing_fields jsonb NOT NULL DEFAULT '[]',
+    warnings jsonb NOT NULL DEFAULT '[]',
+    generated_at timestamptz NOT NULL DEFAULT now(),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT fk_consultation_summary_patient FOREIGN KEY (patient_id) REFERENCES patientcare.patients(patient_id) ON DELETE CASCADE,
+    CONSTRAINT fk_consultation_summary_appointment FOREIGN KEY (appointment_id) REFERENCES patientcare.appointments(appointment_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS patientcare.follow_up_suggestions (
     suggestion_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     original_appointment_id uuid NOT NULL,

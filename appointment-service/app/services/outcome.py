@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Appointment, AppointmentStatusHistory, Patient
+from app.services.ai_client import get_post_consultation_summary
 from app.services.followup import _get_doctor_info_by_user
+from app.services.patient_client import upsert_post_consultation_summary
 from app.services.policy import resolve_policy_for_appointment
 
 
@@ -331,6 +333,7 @@ def _trigger_post_completion_workflows(
         actor_role=actor_role,
         actor_user_id=actor_user_id,
     )
+    _generate_and_send_post_consultation_summary(appointment=appointment)
 
 
 def _trigger_reschedule_recommendation(
@@ -376,3 +379,65 @@ def _resolve_patient_user_id(db: Session, patient_id: UUID) -> str | None:
     if not patient or not patient.user_id:
         return None
     return str(patient.user_id)
+
+
+def _generate_and_send_post_consultation_summary(*, appointment: Appointment) -> None:
+    try:
+        ai_summary = get_post_consultation_summary(appointment_id=appointment.appointment_id)
+    except HTTPException:
+        return
+
+    status = str(ai_summary.get("status") or "").strip().lower()
+    if status not in {"generated", "fallback"}:
+        return
+
+    try:
+        patient_id = UUID(str(ai_summary["patient_id"]))
+        upsert_post_consultation_summary(
+            patient_id=patient_id,
+            payload={
+                "appointment_id": str(ai_summary.get("appointment_id") or appointment.appointment_id),
+                "status": status,
+                "llm_used": bool(ai_summary.get("llm_used")),
+                "diagnosis": ai_summary.get("diagnosis"),
+                "medications": ai_summary.get("medications") if isinstance(ai_summary.get("medications"), list) else [],
+                "sections": ai_summary.get("sections") if isinstance(ai_summary.get("sections"), list) else [],
+                "summary_text": str(ai_summary.get("summary_text") or ""),
+                "summary_html": str(ai_summary.get("summary_html") or ""),
+                "missing_fields": ai_summary.get("missing_fields") if isinstance(ai_summary.get("missing_fields"), list) else [],
+                "warnings": ai_summary.get("warnings") if isinstance(ai_summary.get("warnings"), list) else [],
+                "generated_at": ai_summary.get("generated_at"),
+                "doctor_name": ai_summary.get("doctor_name") or appointment.doctor_name,
+            },
+        )
+    except (HTTPException, KeyError, ValueError, TypeError):
+        return
+
+    patient_user_id = ai_summary.get("patient_user_id")
+    patient_email = ai_summary.get("patient_email")
+    if not patient_user_id or not patient_email:
+        return
+
+    payload = {
+        "event_type": "consultation.summary.available",
+        "user_id": patient_user_id,
+        "payload": {
+            "appointment_id": str(appointment.appointment_id),
+            "doctor_name": ai_summary.get("doctor_name") or appointment.doctor_name,
+            "clinic_name": appointment.clinic_name,
+            "date": appointment.appointment_date.isoformat(),
+            "start_time": appointment.start_time.strftime("%H:%M"),
+            "patient_name": ai_summary.get("patient_name") or "Patient",
+            "email": patient_email,
+            "summary_text": ai_summary.get("summary_text") or "",
+            "summary_html": ai_summary.get("summary_html") or "",
+        },
+        "channels": ["email"],
+        "priority": "normal",
+    }
+
+    try:
+        with httpx.Client(timeout=3.0) as client:
+            client.post(f"{settings.NOTIFICATION_SERVICE_URL}/api/notifications/events", json=payload)
+    except httpx.RequestError:
+        return

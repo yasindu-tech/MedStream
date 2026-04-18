@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     OVERVIEW_HTTP_TIMEOUT_SECONDS: float = 20.0
     REPORT_FETCH_TIMEOUT_SECONDS: float = 5.0
     REPORT_TEXT_MAX_CHARS: int = 2400
+    POST_CONSULTATION_ENABLE_LLM: str = "true"
+    POST_CONSULTATION_HTTP_TIMEOUT_SECONDS: float = 20.0
+    POST_CONSULTATION_MAX_NOTES_CHARS: int = 1200
 
     class Config:
         env_file = ".env"
@@ -20,6 +23,15 @@ class Settings(BaseSettings):
     @property
     def chatbot_enable_llm(self) -> bool:
         return self.CHATBOT_ENABLE_LLM.strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+
+    @property
+    def post_consultation_enable_llm(self) -> bool:
+        return self.POST_CONSULTATION_ENABLE_LLM.strip().lower() in {
             "1",
             "true",
             "yes",

@@ -3,6 +3,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:password@notification-db:5432/medstream_communication"
+    AUTH_SERVICE_URL: str = "http://auth-service:8000"
     # Security
     SECRET_KEY: str = "your-super-secret-key-change-in-production"
     JWT_SECRET: Optional[str] = None

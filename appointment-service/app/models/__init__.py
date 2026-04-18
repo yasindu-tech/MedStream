@@ -13,6 +13,7 @@ class Patient(Base):
 
     patient_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), nullable=True)
+    email = Column(String(255), nullable=True)
     full_name = Column(String(255), nullable=False)
     dob = Column(Date, nullable=True)
     gender = Column(String(20), nullable=True)

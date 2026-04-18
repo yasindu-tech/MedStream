@@ -8,11 +8,12 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Allergy, ChronicCondition, MedicalDocument, Patient, Prescription
+from app.models import Allergy, ChronicCondition, ConsultationSummary, MedicalDocument, Patient, Prescription
 from app.schemas import (
     AllergyCreate,
     AllergyResponse,
     AllergyUpdate,
+    ConsultationSummaryResponse,
     ChronicConditionCreate,
     ChronicConditionResponse,
     ChronicConditionUpdate,
@@ -65,12 +66,39 @@ def get_patient_profile_by_user_id(user_id: UUID, db: Session = Depends(get_db))
     return patient
 
 
+@router.get("/by-user/{user_id}/consultation-summaries", response_model=list[ConsultationSummaryResponse])
+def list_consultation_summaries_by_user(user_id: UUID, db: Session = Depends(get_db)) -> list[ConsultationSummaryResponse]:
+    patient = db.query(Patient).filter(Patient.user_id == user_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+
+    summaries = (
+        db.query(ConsultationSummary)
+        .filter(ConsultationSummary.patient_id == patient.patient_id)
+        .order_by(ConsultationSummary.generated_at.desc())
+        .all()
+    )
+    return summaries
+
+
 @router.get("/patients/{patient_id}", response_model=PatientProfileResponse)
 def get_patient_profile(patient_id: UUID, db: Session = Depends(get_db)) -> PatientProfileResponse:
     patient = db.query(Patient).filter(Patient.patient_id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient profile not found")
     return patient
+
+
+@router.get("/patients/{patient_id}/consultation-summaries", response_model=list[ConsultationSummaryResponse])
+def list_consultation_summaries(patient_id: UUID, db: Session = Depends(get_db)) -> list[ConsultationSummaryResponse]:
+    _get_patient_or_404(db, patient_id)
+    summaries = (
+        db.query(ConsultationSummary)
+        .filter(ConsultationSummary.patient_id == patient_id)
+        .order_by(ConsultationSummary.generated_at.desc())
+        .all()
+    )
+    return summaries
 
 
 @router.patch("/patients/{patient_id}", response_model=PatientProfilePageResponse)
