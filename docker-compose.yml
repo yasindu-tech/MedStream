@@ -162,15 +162,43 @@ services:
         condition: service_started
       doctor-service:
         condition: service_started
+      ai-service:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg2://dev_user:dev_password@patientcare_db:5432/medstream_patientcare
       DOCTOR_SERVICE_URL: http://doctor-service:8000
       CLINIC_SERVICE_URL: http://clinic-service:8000
       NOTIFICATION_SERVICE_URL: http://notification-service:8000
       PAYMENT_SERVICE_URL: http://payment-service:8000
+      AI_SERVICE_URL: http://ai-service:8000
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-medstream-internal-token}
     ports:
       - "8004:8000"
+    networks:
+      - medstream-net
+
+  ai-service:
+    build: ./ai-service
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./ai-service:/app
+    depends_on:
+      doctor-service:
+        condition: service_started
+    environment:
+      DOCTOR_SERVICE_URL: http://doctor-service:8000
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8000
+      PATIENT_SERVICE_URL: http://patient-service:8000
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-medstream-internal-token}
+      CHATBOT_ENABLE_LLM: ${CHATBOT_ENABLE_LLM:-true}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-flash-latest}
+      OVERVIEW_RECENT_LIMIT: ${OVERVIEW_RECENT_LIMIT:-10}
+      OVERVIEW_HTTP_TIMEOUT_SECONDS: ${OVERVIEW_HTTP_TIMEOUT_SECONDS:-20}
+      REPORT_FETCH_TIMEOUT_SECONDS: ${REPORT_FETCH_TIMEOUT_SECONDS:-5}
+      REPORT_TEXT_MAX_CHARS: ${REPORT_TEXT_MAX_CHARS:-2400}
+    ports:
+      - "8009:8000"
     networks:
       - medstream-net
 

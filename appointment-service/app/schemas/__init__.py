@@ -1,9 +1,9 @@
 """Pydantic schemas for appointment-service."""
 from __future__ import annotations
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 from typing import List, Optional
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -192,6 +192,91 @@ class PatientSummaryResponse(BaseModel):
     appointment_type: str
     appointment_status: str
     consultation_fee: Optional[float] = None
+
+
+class InternalPreConsultationContextRequest(BaseModel):
+    doctor_user_id: str
+    recent_limit: int = 10
+
+
+class PreConsultationAppointmentInfo(BaseModel):
+    appointment_id: UUID
+    patient_id: UUID
+    doctor_id: Optional[UUID] = None
+    doctor_name: Optional[str] = None
+    clinic_id: Optional[UUID] = None
+    clinic_name: Optional[str] = None
+    appointment_date: date
+    start_time: str
+    end_time: str
+    appointment_type: str
+    appointment_status: str
+
+
+class PreConsultationClinicHistoryItem(BaseModel):
+    clinic_id: Optional[UUID] = None
+    clinic_name: Optional[str] = None
+    visit_count: int
+    last_visit_date: Optional[date] = None
+
+
+class PreConsultationNoteItem(BaseModel):
+    note_id: UUID
+    appointment_id: UUID
+    doctor_id: UUID
+    content: str
+    created_at: str
+    updated_at: str
+
+
+class PreConsultationPrescriptionItem(BaseModel):
+    prescription_id: UUID
+    appointment_id: UUID
+    patient_id: UUID
+    doctor_id: Optional[UUID] = None
+    clinic_id: Optional[UUID] = None
+    medications: List[MedicationItem]
+    instructions: Optional[str] = None
+    status: str
+    issued_at: Optional[str] = None
+    finalized_at: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
+class InternalPreConsultationContextResponse(BaseModel):
+    patient: PatientSummaryResponse
+    appointment: PreConsultationAppointmentInfo
+    clinic_history: List[PreConsultationClinicHistoryItem]
+    recent_notes: List[PreConsultationNoteItem]
+    recent_prescriptions: List[PreConsultationPrescriptionItem]
+    recent_reports: List[PatientDocumentResponse]
+
+
+class AIDoctorRiskFlag(BaseModel):
+    severity: str
+    title: str
+    reason: str
+
+
+class AIDoctorOverviewSection(BaseModel):
+    key: str
+    title: str
+    summary: str
+    highlights: List[str]
+    source_count: int = 0
+    latest_source_at: Optional[str] = None
+
+
+class DoctorAIPatientOverviewResponse(BaseModel):
+    appointment_id: UUID
+    patient_id: UUID
+    generated_at: str
+    llm_used: bool
+    overall_summary: str
+    risk_flags: List[AIDoctorRiskFlag]
+    suggested_focus_areas: List[str]
+    sections: List[AIDoctorOverviewSection]
 
 
 class PatientDocumentRequest(BaseModel):
@@ -396,4 +481,88 @@ class UpdateAppointmentPolicyRequest(BaseModel):
     no_show_grace_period_minutes: int
     max_reschedules: int
     reason: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Chatbot: symptom-to-doctor recommendation (MVP)
+# ---------------------------------------------------------------------------
+
+class ChatbotRecommendationRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+    symptoms: str
+    target_date: Optional[date] = None
+    consultation_type: Optional[str] = None
+    clinic_id: Optional[UUID] = None
+    max_recommendations: int = 5
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_aliases(cls, data):
+        if not isinstance(data, dict):
+            return data
+
+        normalized = dict(data)
+
+        if "symptoms" not in normalized:
+            for key in ("symptom", "symptom_text", "symptomText", "message", "input", "query"):
+                if key in normalized:
+                    normalized["symptoms"] = normalized[key]
+                    break
+
+        if "consultation_type" not in normalized and "consultationType" in normalized:
+            normalized["consultation_type"] = normalized["consultationType"]
+
+        if "clinic_id" not in normalized and "clinicId" in normalized:
+            normalized["clinic_id"] = normalized["clinicId"]
+
+        if "max_recommendations" not in normalized and "maxRecommendations" in normalized:
+            normalized["max_recommendations"] = normalized["maxRecommendations"]
+
+        if "target_date" not in normalized:
+            for key in ("appointmentDate", "targetDate"):
+                if key in normalized:
+                    normalized["target_date"] = normalized[key]
+                    break
+        if "target_date" not in normalized and "date" in normalized:
+            normalized["target_date"] = normalized["date"]
+
+        return normalized
+
+    @field_validator("symptoms")
+    @classmethod
+    def _validate_symptoms(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("symptoms cannot be empty")
+        return normalized
+
+    @field_validator("target_date", mode="before")
+    @classmethod
+    def _normalize_date(cls, value):
+        if value is None or value == "":
+            return None
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return None
+            if "T" in raw:
+                try:
+                    return datetime.fromisoformat(raw.replace("Z", "+00:00")).date()
+                except ValueError:
+                    return value
+        return value
+
+
+class ChatbotRecommendationResponse(BaseModel):
+    recommendation_reason: str
+    suggested_specialties: List[str]
+    top_doctors: List[DoctorSearchResult]
+    follow_up_question: Optional[str] = None
+    no_results_guidance: Optional[str] = None
+    total: int
+    empty_state: bool
+    llm_used: bool
 

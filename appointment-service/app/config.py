@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     NOTIFICATION_SERVICE_URL: str = "http://notification-service:8000"
     PAYMENT_SERVICE_URL: str = "http://payment-service:8000"
     TELEMEDICINE_SERVICE_URL: str = "http://telemedicine-service:8000"
+    AI_SERVICE_URL: str = "http://ai-service:8000"
     INTERNAL_SERVICE_TOKEN: str = "medstream-internal-token"
     SECRET_KEY: str = "your-super-secret-key-change-in-production"
     ALGORITHM: str = "HS256"

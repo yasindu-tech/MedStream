@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Patient
-from app.schemas import PatientProfileCreate, PatientProfileResponse
+from app.models import Allergy, ChronicCondition, MedicalDocument, Patient, Prescription
+from app.schemas import InternalPatientMedicalSummaryResponse, PatientProfileCreate, PatientProfileResponse
 
 router = APIRouter(tags=["internal"])
 
@@ -38,3 +40,48 @@ def create_patient_profile(request: PatientProfileCreate, db: Session = Depends(
     db.commit()
     db.refresh(patient)
     return patient
+
+
+@router.get("/patients/{patient_id}/medical-summary", response_model=InternalPatientMedicalSummaryResponse)
+def get_internal_patient_medical_summary(
+    patient_id: UUID,
+    db: Session = Depends(get_db),
+) -> InternalPatientMedicalSummaryResponse:
+    patient = db.query(Patient).filter(Patient.patient_id == patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient profile not found")
+
+    allergies = (
+        db.query(Allergy)
+        .filter(Allergy.patient_id == patient.patient_id)
+        .order_by(Allergy.allergy_name.asc())
+        .all()
+    )
+    chronic_conditions = (
+        db.query(ChronicCondition)
+        .filter(ChronicCondition.patient_id == patient.patient_id)
+        .order_by(ChronicCondition.condition_name.asc())
+        .all()
+    )
+    prescriptions = (
+        db.query(Prescription)
+        .filter(Prescription.patient_id == patient.patient_id)
+        .order_by(Prescription.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    documents = (
+        db.query(MedicalDocument)
+        .filter(MedicalDocument.patient_id == patient.patient_id)
+        .order_by(MedicalDocument.uploaded_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    return InternalPatientMedicalSummaryResponse(
+        profile=patient,
+        allergies=allergies,
+        chronic_conditions=chronic_conditions,
+        prescriptions=prescriptions,
+        documents=documents,
+    )

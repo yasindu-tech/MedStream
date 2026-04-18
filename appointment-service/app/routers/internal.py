@@ -18,6 +18,8 @@ from app.models import Appointment, AppointmentStatusHistory
 from app.schemas import AppointmentOutcomeResponse, BookedSlotResponse, InternalNoShowRequest, InternalTechnicalFailureRequest, MarkArrivedRequest
 from app.services.outcome import mark_arrived, mark_no_show, mark_technical_failure
 from app.services.policy import resolve_effective_policy
+from app.schemas import InternalPreConsultationContextRequest, InternalPreConsultationContextResponse
+from app.services.consultation import get_pre_consultation_context
 
 router = APIRouter(tags=["internal"])
 
@@ -266,5 +268,23 @@ def internal_get_appointment_details(
         "start_time": appointment.start_time.strftime("%H:%M"),
         "clinic_name": appointment.clinic_name,
     }
+
+
+@router.post(
+    "/appointments/{appointment_id}/pre-consultation-context",
+    response_model=InternalPreConsultationContextResponse,
+)
+def internal_get_pre_consultation_context(
+    request: InternalPreConsultationContextRequest,
+    appointment_id: UUID = Path(...),
+    db: Session = Depends(get_db),
+) -> InternalPreConsultationContextResponse:
+    payload = get_pre_consultation_context(
+        db,
+        appointment_id=appointment_id,
+        doctor_user_id=request.doctor_user_id,
+        recent_limit=request.recent_limit,
+    )
+    return InternalPreConsultationContextResponse(**payload)
 
 

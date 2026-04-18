@@ -12,6 +12,7 @@ from app.routers.outcome import router as outcome_router
 from app.routers.consultation import router as consultation_router
 from app.routers.admin import router as admin_router
 from app.routers.policy import router as policy_router
+from app.routers.chatbot import router as chatbot_router
 
 app = FastAPI(title="appointment-service", version="0.1.0")
 
@@ -56,6 +57,9 @@ app.include_router(admin_router)
 
 # Public: JWT required, appointment policy management.
 app.include_router(policy_router)
+
+# Public: JWT required, symptom-to-doctor chatbot recommendations.
+app.include_router(chatbot_router)
 
 
 @app.get("/health", tags=["health"])
