@@ -117,6 +117,8 @@ class PaymentService:
                     amount=payment.amount,
                     currency=payment.currency,
                     patient_email=patient_email,
+                    doctor_name=doctor_name,
+                    appointment_date=appointment_date,
                     doctor_amount=payment.doctor_amount,
                     clinic_amount=payment.clinic_amount,
                     system_amount=payment.system_amount

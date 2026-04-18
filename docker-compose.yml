@@ -230,6 +230,8 @@ services:
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./payment-service:/app
+    env_file:
+      - ./payment-service/.env
     depends_on:
       finance_db:
         condition: service_started
@@ -250,7 +252,7 @@ services:
     volumes:
       - ./notification-service:/app
     env_file:
-      - ./notification-service/app/.env
+      - ./notification-service/.env
     depends_on:
       communication_db:
         condition: service_started

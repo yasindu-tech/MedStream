@@ -21,7 +21,7 @@ GRANT ALL ON SCHEMA admin TO dev_user;
 -- Tables
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS admin.clinics (
+CREATE TABLE admin.clinics (
     clinic_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     clinic_name      varchar(255) NOT NULL,
     registration_no  varchar(120),
@@ -33,15 +33,15 @@ CREATE TABLE IF NOT EXISTS admin.clinics (
     created_at       timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_clinics_registration_no
+CREATE UNIQUE INDEX uq_clinics_registration_no
     ON admin.clinics (registration_no)
     WHERE registration_no IS NOT NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_clinics_email
+CREATE UNIQUE INDEX uq_clinics_email
     ON admin.clinics (email)
     WHERE email IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS admin.clinic_admins (
+CREATE TABLE admin.clinic_admins (
     clinic_admin_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     clinic_id uuid NOT NULL,
     user_id uuid,
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS admin.clinic_admins (
         FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS admin.clinic_staff (
+CREATE TABLE admin.clinic_staff (
     staff_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     clinic_id uuid NOT NULL,
     user_id uuid,
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS admin.clinic_staff (
         FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS admin.clinic_staff_history (
+CREATE TABLE admin.clinic_staff_history (
     history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     staff_id uuid NOT NULL,
     clinic_id uuid NOT NULL,
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS admin.clinic_staff_history (
     changed_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS admin.doctor_assignment_history (
+CREATE TABLE admin.doctor_assignment_history (
     history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     doctor_id uuid NOT NULL,
     clinic_id uuid NOT NULL,
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS admin.doctor_assignment_history (
     changed_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS admin.clinic_status_history (
+CREATE TABLE admin.clinic_status_history (
     history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     clinic_id uuid NOT NULL,
     old_status varchar(30),
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS admin.clinic_status_history (
     changed_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS admin.doctors (
+CREATE TABLE admin.doctors (
     doctor_id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id                  uuid,
     full_name                varchar(255) NOT NULL,
@@ -119,26 +119,16 @@ CREATE TABLE IF NOT EXISTS admin.doctors (
     qualifications           text,
     profile_image_url        text,
     consultation_fee         numeric(10,2),
+    specializations          jsonb,
+    primary_specialization   varchar(120),
     created_at               timestamptz NOT NULL DEFAULT now()
 );
 
--- Ensure new profile columns exist on databases created before AS-02
-ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS bio                 text;
-ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS experience_years    int;
-ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS qualifications      text;
-ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS profile_image_url   text;
-ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS consultation_fee    numeric(10,2);
-ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS specializations      jsonb;
-ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS primary_specialization varchar(120);
-ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS verification_documents jsonb;
-ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS verification_rejection_reason text;
-ALTER TABLE admin.doctors ADD COLUMN IF NOT EXISTS suspension_reason    text;
-
-CREATE UNIQUE INDEX IF NOT EXISTS uq_doctors_medical_registration_no
+CREATE UNIQUE INDEX uq_doctors_medical_registration_no
     ON admin.doctors (medical_registration_no)
     WHERE medical_registration_no IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS admin.doctor_profile_history (
+CREATE TABLE admin.doctor_profile_history (
     history_id   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     doctor_id    uuid NOT NULL,
     field_name   varchar(100) NOT NULL,
@@ -151,7 +141,7 @@ CREATE TABLE IF NOT EXISTS admin.doctor_profile_history (
         FOREIGN KEY (doctor_id) REFERENCES admin.doctors(doctor_id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS admin.doctor_clinic_assignments (
+CREATE TABLE admin.doctor_clinic_assignments (
     assignment_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     doctor_id     uuid NOT NULL,
     clinic_id     uuid NOT NULL,
@@ -162,11 +152,12 @@ CREATE TABLE IF NOT EXISTS admin.doctor_clinic_assignments (
     CONSTRAINT uq_assign UNIQUE (doctor_id, clinic_id)
 );
 
-CREATE TABLE IF NOT EXISTS admin.doctor_availability (
+CREATE TABLE admin.doctor_availability (
     availability_id   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     doctor_id         uuid NOT NULL,
     clinic_id         uuid NOT NULL,
-    day_of_week       varchar(20) NOT NULL,
+    day_of_week       varchar(20),
+    date              date,
     start_time        varchar(10) NOT NULL,
     end_time          varchar(10) NOT NULL,
     slot_duration     int NOT NULL DEFAULT 30,
@@ -177,11 +168,10 @@ CREATE TABLE IF NOT EXISTS admin.doctor_availability (
     CONSTRAINT fk_avail_clinic FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
 );
 
--- Ensure newer scheduling columns exist on databases created before one-time date support
-ALTER TABLE admin.doctor_availability ADD COLUMN IF NOT EXISTS date date;
-ALTER TABLE admin.doctor_availability ALTER COLUMN day_of_week DROP NOT NULL;
+CREATE UNIQUE INDEX uq_doctor_availability_slot
+    ON admin.doctor_availability (doctor_id, clinic_id, day_of_week, start_time, consultation_type);
 
-CREATE TABLE IF NOT EXISTS admin.doctor_availability_history (
+CREATE TABLE admin.doctor_availability_history (
     history_id       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     availability_id  uuid NOT NULL,
     doctor_id        uuid NOT NULL,
@@ -196,7 +186,7 @@ CREATE TABLE IF NOT EXISTS admin.doctor_availability_history (
         FOREIGN KEY (doctor_id) REFERENCES admin.doctors(doctor_id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS admin.doctor_leave (
+CREATE TABLE admin.doctor_leave (
     leave_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     doctor_id       uuid NOT NULL,
     clinic_id       uuid,
@@ -209,10 +199,7 @@ CREATE TABLE IF NOT EXISTS admin.doctor_leave (
     CONSTRAINT fk_leave_clinic FOREIGN KEY (clinic_id) REFERENCES admin.clinics(clinic_id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_doctor_availability_slot
-    ON admin.doctor_availability (doctor_id, clinic_id, day_of_week, start_time, consultation_type);
-
-CREATE TABLE IF NOT EXISTS admin.clinic_payment_accounts (
+CREATE TABLE admin.clinic_payment_accounts (
     payment_account_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     clinic_id           uuid NOT NULL,
     provider_name       varchar(120),
@@ -235,10 +222,8 @@ INSERT INTO admin.clinics (clinic_id, clinic_name, registration_no, address, pho
 VALUES
     ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Colombo Heart Centre',    'REG-CHC-001', '45 Galle Road, Colombo 03',   '+94112345678', 'info@chc.lk',     1000.00, 'active'),
     ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Kandy Medical Institute', 'REG-KMI-002', '12 Peradeniya Road, Kandy',    '+94812345678', 'info@kmi.lk',     800.00,  'active'),
-    ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'Sunrise Tele Clinic',     'REG-STC-003', '78 Online Avenue, Colombo 07', '+94112340000', 'info@sunrise.lk', 500.00,  'active')
-ON CONFLICT (clinic_id) DO NOTHING;
+    ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'Sunrise Tele Clinic',     'REG-STC-003', '78 Online Avenue, Colombo 07', '+94112340000', 'info@sunrise.lk', 500.00,  'active');
 
--- Doctors linked to auth seed users (22222222-... = dr.anura, 33333333-... = dr.nadee)
 INSERT INTO admin.doctors (
     doctor_id, user_id, full_name, medical_registration_no,
     specialization, consultation_mode, verification_status, status,
@@ -250,10 +235,10 @@ INSERT INTO admin.doctors (
         'Dr. Anura Bandara',
         'SLMC-1001',
         'Cardiology',
-        'physical',
+        'telemedicine',
         'verified',
         'active',
-        'Senior cardiologist with over 15 years of experience in interventional cardiology and heart failure management. Specialises in coronary artery disease and preventive cardiology.',
+        'Senior cardiologist with over 15 years of experience in interventional cardiology and heart failure management.',
         15,
         'MBBS (Colombo), MD (Cardiology), MRCP (UK), FCCP',
         NULL,
@@ -268,7 +253,7 @@ INSERT INTO admin.doctors (
         'telemedicine',
         'verified',
         'active',
-        'Consultant cardiologist offering telemedicine consultations. Special interest in cardiac imaging and echocardiography.',
+        'Consultant cardiologist offering telemedicine consultations.',
         10,
         'MBBS (Peradeniya), MD (Cardiology), FRCP (Edin)',
         NULL,
@@ -283,73 +268,47 @@ INSERT INTO admin.doctors (
         'physical',
         'verified',
         'active',
-        NULL,           -- incomplete profile (no bio)
-        NULL,           -- incomplete profile (no experience)
+        NULL,
+        NULL,
         'MBBS (Colombo)',
         NULL,
         1000.00
-    )
-ON CONFLICT (doctor_id) DO NOTHING;
+    );
 
 INSERT INTO admin.doctor_clinic_assignments (doctor_id, clinic_id, status)
 VALUES
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'active'),
     ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'active'),
-    ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'active')
-ON CONFLICT (doctor_id, clinic_id) DO NOTHING;
+    ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'active');
 
--- Availability covers every day of the week for easy testing
 INSERT INTO admin.doctor_availability (doctor_id, clinic_id, day_of_week, start_time, end_time, slot_duration, consultation_type, status)
 VALUES
-    -- Dr. Anura: Mon-Sat physical @ Colombo Heart Centre
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'monday',    '08:00', '12:00', 30, 'physical', 'active'),
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'tuesday',   '08:00', '12:00', 30, 'physical', 'active'),
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'wednesday', '08:00', '12:00', 30, 'physical', 'active'),
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'thursday',  '08:00', '12:00', 30, 'physical', 'active'),
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'friday',    '08:00', '12:00', 30, 'physical', 'active'),
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'saturday',  '09:00', '13:00', 30, 'physical', 'active'),
-
-    -- Dr. Nadeesha: Mon-Fri telemedicine @ Sunrise Tele Clinic
     ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'monday',    '10:00', '16:00', 30, 'telemedicine', 'active'),
     ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'tuesday',   '10:00', '16:00', 30, 'telemedicine', 'active'),
     ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'wednesday', '10:00', '16:00', 30, 'telemedicine', 'active'),
     ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'thursday',  '10:00', '16:00', 30, 'telemedicine', 'active'),
     ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'friday',    '10:00', '16:00', 30, 'telemedicine', 'active'),
-
-    -- Dr. Ruwan: Tue/Thu/Sat physical @ Kandy Medical Institute
     ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'tuesday',   '09:00', '14:00', 20, 'physical', 'active'),
     ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'thursday',  '09:00', '14:00', 20, 'physical', 'active'),
-    ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'saturday',  '09:00', '13:00', 20, 'physical', 'active')
-ON CONFLICT DO NOTHING;
-
--- Ensure Dr. Anura is telemedicine-enabled (weekday afternoon slots)
-INSERT INTO admin.doctor_availability (doctor_id, clinic_id, day_of_week, start_time, end_time, slot_duration, consultation_type, status)
-VALUES
+    ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'saturday',  '09:00', '13:00', 20, 'physical', 'active'),
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'monday',    '14:00', '17:00', 30, 'telemedicine', 'active'),
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'tuesday',   '14:00', '17:00', 30, 'telemedicine', 'active'),
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'wednesday', '14:00', '17:00', 30, 'telemedicine', 'active'),
     ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'thursday',  '14:00', '17:00', 30, 'telemedicine', 'active'),
-    ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'friday',    '14:00', '17:00', 30, 'telemedicine', 'active')
-ON CONFLICT DO NOTHING;
-
-UPDATE admin.doctors
-SET consultation_mode = 'telemedicine'
-WHERE doctor_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'friday',    '14:00', '17:00', 30, 'telemedicine', 'active');
 
 INSERT INTO admin.clinic_payment_accounts (clinic_id, provider_name, account_reference, verification_status)
 VALUES 
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'stripe', 'acct_1OuXXXXX', 'verified')
-ON CONFLICT DO NOTHING;
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'stripe', 'acct_1OuXXXXX', 'verified'),
+    ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'PayHere',   'PAYHERE-KMI-002', 'verified'),
+    ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'Stripe',    'STRIPE-STC-003',  'pending');
 
--- Map the dummy clinic_admin to the dummy clinic
 INSERT INTO admin.clinic_admins (clinic_id, user_id, status)
 VALUES 
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '66666666-6666-4666-8666-666666666666', 'active')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO admin.clinic_payment_accounts (clinic_id, provider_name, account_reference, verification_status)
-VALUES
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'PayHere',   'PAYHERE-CHC-001', 'verified'),
-    ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'PayHere',   'PAYHERE-KMI-002', 'verified'),
-    ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'Stripe',    'STRIPE-STC-003',  'pending')
-ON CONFLICT (payment_account_id) DO NOTHING;
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '66666666-6666-4666-8666-666666666666', 'active');
