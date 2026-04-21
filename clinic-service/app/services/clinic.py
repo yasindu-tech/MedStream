@@ -19,7 +19,6 @@ from app.schemas import (
     ClinicUpdateRequest,
     CreateClinicRequest,
     CreateClinicStaffRequest,
-    UpdateClinicRequest,
     UpdateClinicStaffRequest,
 )
 from app.services.appointment_client import (
@@ -73,8 +72,19 @@ def update_clinic(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clinic not found.")
 
     changes = False
+    if payload.registration_no is not None and payload.registration_no != clinic.registration_no:
+        existing = get_clinic_by_registration(db, payload.registration_no)
+        if existing and str(existing.clinic_id) != str(clinic.clinic_id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Clinic registration number already exists.",
+            )
+
     if payload.clinic_name is not None:
         clinic.clinic_name = payload.clinic_name
+        changes = True
+    if payload.registration_no is not None:
+        clinic.registration_no = payload.registration_no
         changes = True
     if payload.address is not None:
         clinic.address = payload.address
@@ -82,15 +92,17 @@ def update_clinic(
     if payload.phone is not None:
         clinic.phone = payload.phone
         changes = True
+    if payload.email is not None:
+        clinic.email = payload.email
+        changes = True
     if payload.facility_charge is not None:
         clinic.facility_charge = payload.facility_charge
         changes = True
     
     if payload.status is not None and payload.status != clinic.status:
-        # If status is changing, we use change_clinic_status logic but combined here
         old_status = clinic.status
         clinic.status = payload.status
-        _log_clinic_status_change(db, clinic, payload.status, changed_by=changed_by, reason="Updated from admin panel")
+        _log_clinic_status_change(db, clinic, payload.status, changed_by=changed_by, reason=payload.reason or "Updated from UI")
         changes = True
 
     if not changes:
@@ -346,39 +358,6 @@ def _log_doctor_assignment(
     db.add(history)
 
 
-def update_clinic(
-    db: Session,
-    clinic_id: str,
-    payload: UpdateClinicRequest,
-    changed_by: str | None = None,
-) -> Clinic:
-    clinic = get_clinic_by_id(db, clinic_id)
-    if not clinic:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clinic not found.")
-
-    if payload.registration_no is not None and payload.registration_no != clinic.registration_no:
-        existing = get_clinic_by_registration(db, payload.registration_no)
-        if existing and str(existing.clinic_id) != str(clinic.clinic_id):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Clinic registration number already exists.",
-            )
-
-    if payload.clinic_name is not None:
-        clinic.clinic_name = payload.clinic_name
-    if payload.registration_no is not None:
-        clinic.registration_no = payload.registration_no
-    if payload.address is not None:
-        clinic.address = payload.address
-    if payload.phone is not None:
-        clinic.phone = payload.phone
-    if getattr(payload, "email", None) is not None:
-        clinic.email = payload.email
-
-    db.add(clinic)
-    db.commit()
-    db.refresh(clinic)
-    return clinic
 
 
 def change_clinic_status(
@@ -529,6 +508,7 @@ def create_clinic(db: Session, payload: CreateClinicRequest, created_by: str | N
         address=payload.address,
         phone=payload.phone,
         email=payload.email,
+        facility_charge=payload.facility_charge,
         status="inactive",
     )
 
