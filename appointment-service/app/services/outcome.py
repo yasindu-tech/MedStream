@@ -76,12 +76,6 @@ def mark_completed(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only complete your own appointments")
 
     now_dt = datetime.now()
-    appt_dt = datetime.combine(appt.appointment_date, appt.start_time)
-    if now_dt < appt_dt and actor_role not in {"admin", "staff"}:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot mark appointment as completed before scheduled time",
-        )
 
     _record_history(
         db,
