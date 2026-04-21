@@ -451,8 +451,14 @@ class AppointmentListItemResponse(BaseModel):
     status: str
     payment_status: str
     consultation_type: str
-    # prescription_id: Optional[UUID] = None
-    # payment_id: Optional[UUID] = None
+    can_cancel: bool = False
+    can_reschedule: bool = False
+    reschedule_count: int = 0
+    max_reschedules: int = 0
+    telemedicine_session_id: Optional[UUID] = None
+    telemedicine_session_status: Optional[str] = None
+    telemedicine_meeting_link: Optional[str] = None
+    telemedicine_join_link_endpoint: Optional[str] = None
 
 class AppointmentListPaginatedResponse(BaseModel):
     items: list[AppointmentListItemResponse]
