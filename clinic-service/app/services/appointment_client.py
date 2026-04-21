@@ -5,7 +5,11 @@ from uuid import UUID
 import httpx
 from fastapi import HTTPException, status
 
+import logging
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+
 
 
 def get_clinic_future_appointments_count(clinic_id: UUID) -> int:
@@ -48,6 +52,7 @@ def get_doctor_future_appointments_count(doctor_id: UUID, clinic_id: UUID) -> in
         with httpx.Client(timeout=10.0) as client:
             response = client.get(url, params=params)
     except httpx.RequestError as exc:
+        logger.error(f"Request error calling appointment service: {str(exc)}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Appointment service unavailable: {str(exc)}",
@@ -58,6 +63,7 @@ def get_doctor_future_appointments_count(doctor_id: UUID, clinic_id: UUID) -> in
             data = response.json()
             return int(data.get("pending_future_appointments", 0))
         except ValueError:
+            logger.error(f"Appointment service returned invalid JSON: {response.text}")
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Appointment service returned invalid JSON.",
@@ -67,10 +73,12 @@ def get_doctor_future_appointments_count(doctor_id: UUID, clinic_id: UUID) -> in
         return 0
 
     detail = response.text
+    logger.error(f"Appointment service returned {response.status_code}: {detail}")
     raise HTTPException(
         status_code=status.HTTP_502_BAD_GATEWAY,
         detail=f"Appointment service returned unexpected status: {response.status_code} - {detail}",
     )
+
 
 
 def get_clinic_operational_dashboard(clinic_id: UUID) -> dict:

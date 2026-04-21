@@ -14,14 +14,18 @@ class CreateClinicRequest(BaseModel):
     address: str = Field(..., min_length=10, description="Physical address of the clinic")
     phone: str = Field(..., min_length=7, max_length=30, description="Contact phone number")
     email: EmailStr = Field(..., description="Contact email address")
+    facility_charge: Decimal | None = Field(Decimal("0.0"), description="Facility charge in LKR")
 
 
-class UpdateClinicRequest(BaseModel):
+class ClinicUpdateRequest(BaseModel):
     clinic_name: str | None = Field(None, min_length=3, description="The clinic's display name")
     registration_no: str | None = Field(None, min_length=3, description="Unique registration identifier")
     address: str | None = Field(None, min_length=10, description="Physical address of the clinic")
     phone: str | None = Field(None, min_length=7, max_length=30, description="Contact phone number")
     email: EmailStr | None = Field(None, description="Contact email address")
+    facility_charge: Decimal | None = Field(None, description="Facility charge in LKR")
+    status: str | None = Field(None, description="Clinic status (active/inactive)")
+    reason: str | None = Field(None, description="Optional reason for update")
 
 
 class ClinicResponse(BaseModel):
@@ -42,14 +46,6 @@ class ClinicResponse(BaseModel):
 class UpdateClinicStatusRequest(BaseModel):
     status: Literal["active", "inactive"]
     reason: str | None = Field(None, description="Optional reason for the status change")
-
-
-class ClinicUpdateRequest(BaseModel):
-    clinic_name: str | None = None
-    address: str | None = None
-    phone: str | None = None
-    facility_charge: Decimal | None = None
-    status: str | None = None
 
 
 class ClinicActionResponse(BaseModel):
